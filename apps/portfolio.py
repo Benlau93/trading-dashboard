@@ -9,7 +9,7 @@ from dash import dash_table
 from app import app
 
 # read in open position
-df = pd.read_excel("Transaction Data.xlsx", sheet_name="Open Position")
+df = pd.read_excel("Transaction Data.xlsx", sheet_name="Open Position", parse_dates=["Date"])
 
 
 # define template used
@@ -55,11 +55,10 @@ def generate_indicator(df):
 
 
 def generate_bar(df):
-    pl_by_name = df[["Name","P/L (SGD)"]].rename({"P/L (SGD)":"P/L"}, axis=1)
+    pl_by_name = df.sort_values("Date")[["Name","P/L (SGD)"]].rename({"P/L (SGD)":"P/L"}, axis=1)
 
     pl_by_name["P/L"] = pl_by_name["P/L"].map(lambda x: round(x,2))
     pl_by_name["TEXT"] = pl_by_name["P/L"].map(lambda x:  "-$" + str(abs(x)) if x<0 else "$" + str((x)))
-    pl_by_name = pl_by_name.sort_values(["Name"])
 
     bar_fig = go.Figure()
     bar_fig.add_trace(
@@ -74,34 +73,28 @@ def generate_bar(df):
 
     return bar_fig
 
-def generate_pie_type(df):
-    position_by_type = df.groupby("Type")[["Name"]].nunique().rename({"Name":"No. of Open Position"}, axis=1).reset_index()
-
-
-    pie_type_fig = go.Figure(
-        go.Pie(labels=position_by_type["Type"], values=position_by_type["No. of Open Position"], textinfo="label+percent", insidetextorientation="radial")
-    )
-    pie_type_fig.update_layout(
-        showlegend=False,
-        margin=dict(t=0)
-    )
-
-    return pie_type_fig
-
-def generate_pie_pl(df):
-    position_by_pl = df[["Name","P/L (SGD)"]].copy()
+def generate_stacked_bar(df):
+    position_by_pl = df[["Type","Name","P/L (SGD)"]].copy()
     position_by_pl["P/L"] = position_by_pl["P/L (SGD)"].map(lambda x: "Profit" if x>=0 else "Loss")
-    position_by_pl = position_by_pl.groupby(["P/L"])[["Name"]].nunique().rename({"Name":"No. of Open Position"}, axis=1).reset_index()
+    position_by_pl = position_by_pl.groupby(["Type","P/L"])[["Name"]].nunique().rename({"Name":"No. of Open Position"}, axis=1).reset_index()
 
-    pie_pl_fig = go.Figure(
-        go.Pie(labels=position_by_pl["P/L"], values=position_by_pl["No. of Open Position"], textinfo="label+percent", insidetextorientation="radial")
+    stack_bar = go.Figure()
+    stack_bar.add_trace(
+        go.Bar(x=position_by_pl[position_by_pl["P/L"]=="Profit"]["Type"], y=position_by_pl[position_by_pl["P/L"]=="Profit"]["No. of Open Position"], name="No. of Position (Profit)", text=position_by_pl[position_by_pl["P/L"]=="Profit"]["No. of Open Position"])
     )
-    pie_pl_fig.update_layout(
-        showlegend=False,
-        margin=dict(t=0)
+    stack_bar.add_trace(
+        go.Bar(x=position_by_pl[position_by_pl["P/L"]=="Loss"]["Type"], y=position_by_pl[position_by_pl["P/L"]=="Loss"]["No. of Open Position"], name="No. of Position (Loss)", text=position_by_pl[position_by_pl["P/L"]=="Loss"]["No. of Open Position"])
+    )
+    stack_bar.update_layout(barmode='stack',
+                            yaxis=dict(showgrid=False, showticklabels=False),
+                            legend=dict(x=0.02,y=0.95),
+                            margin=dict(t=0),
+                            template=TEMPLATE
     )
 
-    return pie_pl_fig
+
+
+    return stack_bar
 
 def generate_table(df):
     df_ = df.copy()
@@ -111,20 +104,16 @@ def generate_table(df):
                     "P/L (SGD)":"Unrealised P/L",
                     "P/L (%)":"Unrealised P/L (%)",
                     "Weightage":"% of Portfolio"}, axis=1)
-    df_ = df_[["Date","Name","Symbol","Price","Current Price","Unrealised P/L","Unrealised P/L (%)","Value","Holdings (days)","% of Portfolio"]].sort_values(["Date"])
+    df_ = df_[["Name","Price","Current Price","Unrealised P/L","Unrealised P/L (%)","Value","Holdings (days)","% of Portfolio"]].sort_values(["Unrealised P/L"])
     
     # formatting
-    df_["Date"] = pd.to_datetime(df_["Date"]).dt.date
-
     money = dash_table.FormatTemplate.money(2)
     percentage = dash_table.FormatTemplate.percentage(2)
 
     table_fig = dash_table.DataTable(
         id="table",
         columns = [
-            dict(id="Date", name="Date"),
             dict(id="Name", name="Name"),
-            dict(id="Symbol", name="Symbol"),
             dict(id="Price", name="Price",type="numeric",format=money),
             dict(id="Current Price", name="Current Price",type="numeric",format=money),
             dict(id="Unrealised P/L", name="Unrealised P/L",type="numeric",format=money),
@@ -134,7 +123,13 @@ def generate_table(df):
             dict(id="% of Portfolio", name="% of Portfolio",type="numeric",format=percentage),
         ],
         data=df_.to_dict('records'),
-        sort_action="native"
+        sort_action="native",
+        style_cell={
+        'height': 'auto',
+        'minWidth': '180px', 'width': '180px', 'maxWidth': '180px',
+        'whiteSpace': 'normal'},
+        style_table={'overflowX': 'scroll'},
+        style_as_list_view=True,
     )
 
     return table_fig
@@ -142,27 +137,26 @@ def generate_table(df):
 
 indicator_fig = generate_indicator(df)
 bar_fig = generate_bar(df)
-pie_type_fig = generate_pie_type(df)
-pie_pl_fig = generate_pie_pl(df)
+stacked_bar_fig = generate_stacked_bar(df)
 table_fig = generate_table(df)
 
-# define layout
 layout = html.Div([
     dbc.Container([
         dbc.Row([
-            dbc.Col(dcc.Graph(id="indicator_open", figure=indicator_fig))
-        ]),
+            dbc.Col(dbc.Card(dbc.CardBody(html.H1("Portfolio",className="card-title"))), width={"size":8,"offset":1}, align="center", className="mt-2"),
+            dbc.Col(dbc.Button("Add Transaction",color="success",href="/portfolio/add",style=dict(margin=10)),width={"size":3})
+        ],align="center"),
         dbc.Row([
-            dbc.Col(dcc.Graph(id="bar_open", figure=bar_fig))
+            dbc.Col(dcc.Graph(id="indicator_open", figure=indicator_fig), width=4, align="centre"),
+            dbc.Col(dcc.Graph(id="bar_open", figure=bar_fig),width=8, align="center")
         ]),
+            dbc.Row([
+                dbc.Col(dbc.Card(html.H3(children='Breakdown',
+                                 className="text-center text-light bg-dark"), body=True, color="dark")
+                , className="mt-0 mb-4")
+            ]),
         dbc.Row([
-            dbc.Col(dcc.Graph(id="pie_type_open", figure=pie_type_fig))
-        ]),
-        dbc.Row([
-            dbc.Col(dcc.Graph(id="pie_pl_open", figure=pie_pl_fig))
-        ]),
-        dbc.Row([
-            dbc.Col(table_fig)
-        ]),
+            dbc.Col(table_fig, width={"size":10,"offset":1})
+        ], align="center")
     ])
 ])

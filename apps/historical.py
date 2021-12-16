@@ -19,8 +19,8 @@ closed_position = df["Closed Position"]
 closed_position["DATE"] = closed_position["Date_Close"].dt.strftime("%b-%y")
 
 # filters
-date_options = [{"label":d, "value":d} for d in closed_position.sort_values("Date_Close", ascending=False)["DATE"].unique()]
-type_options =  [{"label":d, "value":d} for d in closed_position["Type"].unique()]
+date_options = [{"label":d, "value":d} for d in data.sort_values("Date", ascending=False)["Date"].dt.year.unique()]
+type_options =  [{"label":d, "value":d} for d in data["Type"].unique()]
 
 # define template used
 TEMPLATE = "plotly_white"
@@ -87,7 +87,7 @@ def generate_line(df):
 
     line_fig.update_layout(
                             xaxis = dict(showgrid=False),
-                            legend=dict(x=0.1,y=0.9),
+                            legend=dict(x=0.05,y=0.9),
                             margin=dict(t=0),
                             template=TEMPLATE
     )
@@ -175,7 +175,7 @@ def generate_treemap(df):
 layout = html.Div([
         dbc.Container([
             dbc.Row([
-                dbc.Col([dcc.Dropdown(id='date-dropdown',options=date_options,placeholder="Filter by Month" )],width={"size": 3, "offset": 3}),
+                dbc.Col([dcc.Dropdown(id='date-dropdown',options=date_options,placeholder="Filter by Year" )],width={"size": 3, "offset": 3}),
                 dbc.Col([dcc.Dropdown(id='type-dropdown',options=type_options,placeholder="Filter by Types" )],width={"size": 3})
             ]),
             dbc.Row([
@@ -235,28 +235,24 @@ def update_graph(date,type):
     if date == None and type == None:
         data_filtered = data.copy()
         closed_position_filtered = closed_position.copy()
-        closed_position_filtered_freeze_date = closed_position.copy()
 
     else:
         if date != None and type != None:
-            data_filtered = data[(data["DATE"]==date) & (data["Type"]==type)].copy()
-            closed_position_filtered = closed_position[(closed_position["DATE"]==date) & (closed_position["Type"]==type)].copy()
-            closed_position_filtered_freeze_date = closed_position[(closed_position["Type"]==type)].copy()
+            data_filtered = data[(data["Date"].dt.year==date) & (data["Type"]==type)].copy()
+            closed_position_filtered = closed_position[(closed_position["Date_Close"].dt.year==date) & (closed_position["Type"]==type)].copy()
 
         elif date != None:
-            data_filtered = data[(data["DATE"]==date)].copy()
-            closed_position_filtered = closed_position[(closed_position["DATE"]==date)].copy()
-            closed_position_filtered_freeze_date = closed_position.copy()
+            data_filtered = data[(data["Date"].dt.year==date)].copy()
+            closed_position_filtered = closed_position[(closed_position["Date_Close"].dt.year==date)].copy()
 
         else:
             data_filtered = data[(data["Type"]==type)].copy()
             closed_position_filtered = closed_position[(closed_position["Type"]==type)].copy()
-            closed_position_filtered_freeze_date = closed_position[(closed_position["Type"]==type)].copy()
 
 
 
     indicator_fig = generate_indicator(closed_position_filtered)
-    line_fig = generate_line(closed_position_filtered_freeze_date)
+    line_fig = generate_line(closed_position_filtered)
     bar_fig = generate_bar(closed_position_filtered)
     stack_bar = generate_stack_bar(data_filtered)
     treemap_closed_profit, treemap_closed_loss = generate_treemap(closed_position_filtered)
