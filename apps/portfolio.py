@@ -5,7 +5,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from dash.dependencies import Input, Output
-from dash_table import DataTable, FormatTemplate
+from dash import dash_table
 from app import app
 
 # read in open position
@@ -116,10 +116,10 @@ def generate_table(df):
     # formatting
     df_["Date"] = pd.to_datetime(df_["Date"]).dt.date
 
-    money = FormatTemplate.money(2)
-    percentage = FormatTemplate.percentage(2)
+    money = dash_table.FormatTemplate.money(2)
+    percentage = dash_table.FormatTemplate.percentage(2)
 
-    table_fig = DataTable(
+    table_fig = dash_table.DataTable(
         id="table",
         columns = [
             dict(id="Date", name="Date"),
