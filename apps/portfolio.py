@@ -16,6 +16,20 @@ df = pd.read_excel("Transaction Data.xlsx", sheet_name="Open Position", parse_da
 # define template used
 TEMPLATE = "plotly_white"
 
+# total portfolio value
+current_value = df["Value (SGD)"].sum()
+buy_in_amount = df["Amount (SGD)"].sum()
+
+main_indicator = go.Figure()
+main_indicator.add_trace(
+    go.Indicator(mode="number+delta", title="Total Portfolio Value",value=current_value, number = dict(valueformat="$,.2f"),delta={"reference":buy_in_amount,"position":"bottom","valueformat":"$,.2f"})
+)
+
+main_indicator.update_layout(
+        height=300,
+        template=TEMPLATE
+)
+
 # main kpi
 def generate_indicator(df):
     df_ = df.copy()
@@ -174,6 +188,9 @@ layout = html.Div([
             dbc.Col(dbc.Card(dbc.CardBody(html.H1("Portfolio (Current Positions)",className="card-title"))), width={"size":8,"offset":1}, align="center", className="mt-2"),
             dbc.Col(dbc.Button("Add Transaction",color="success",href="/portfolio/add",style=dict(margin=10)),width={"size":3})
         ],align="center"),
+        dbc.Row([
+            dbc.Col(dcc.Graph(id="main-indicator",figure=main_indicator), width={"size":8,"offset":2})
+        ], align="center"),
         dbc.Row([
             dbc.Col(dcc.Graph(id="indicator_open", figure=indicator_fig), width=4, align="centre"),
             dbc.Col(dcc.Graph(id="bar_open", figure=bar_line_fig),width=8, align="center")
