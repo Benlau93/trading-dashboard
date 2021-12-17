@@ -73,18 +73,13 @@ def generate_indicator(df):
 def generate_bar_line(df):
     pl_by_name = df.sort_values("Date")[["Name","P/L (SGD)","P/L (%)"]].rename({"P/L (SGD)":"P/L"}, axis=1)
 
-    pl_by_name["P/L"] = pl_by_name["P/L"].map(lambda x: round(x,2))
-    pl_by_name["TEXT"] = pl_by_name["P/L"].map(lambda x:  "-$" + str(abs(x)) if x<0 else "$" + str((x)))
-    pl_by_name["P/L (%)"] = pl_by_name["P/L (%)"].map(lambda x: round(x*100,2))
-    pl_by_name["TEXT_%"] = pl_by_name["P/L (%)"].map(lambda x:  "-" + str(abs(x)) + "%" if x<0 else str(x)+ "%")
-
     bar_line_fig = make_subplots(specs=[[{"secondary_y": True}]])
     bar_line_fig.add_trace(
-        go.Bar(x=pl_by_name["Name"],y=pl_by_name["P/L"], text=pl_by_name["TEXT"], textposition="inside", yaxis="y1",name="P/L")
+        go.Bar(x=pl_by_name["Name"],y=pl_by_name["P/L"],texttemplate ="%{y:$,.2f}", textposition="inside", yaxis="y1",name="P/L", hovertemplate="%{x}, %{y:$,.2f}")
     )
 
     bar_line_fig.add_trace(
-        go.Scatter(x=pl_by_name["Name"],y=pl_by_name["P/L (%)"], text=pl_by_name["TEXT_%)"], name="P/L (%)",mode="lines+markers+text",textposition="bottom left",yaxis="y2"),
+        go.Scatter(x=pl_by_name["Name"],y=pl_by_name["P/L (%)"], texttemplate="%{y:.2%}", name="P/L (%)",mode="markers+text",textposition="bottom left",yaxis="y2"),
         secondary_y=True
     )
     # handle axis
@@ -173,7 +168,6 @@ def generate_bar_line(df):
     bar_line_fig.update_layout(
                         xaxis=dict(showgrid=False),
                         margin=dict(t=0),
-                        legend=dict(x=0.02,y=0.95),
                         template=TEMPLATE                 
     )
     bar_line_fig.update_yaxes(secondary_y=True, showgrid=False, zeroline=False, showticklabels=False, range=[y2_range_min, y2_range_max])
@@ -182,40 +176,13 @@ def generate_bar_line(df):
 
     return bar_line_fig
 
-def generate_stacked_bar(df):
-    position_by_pl = df[["Type","Name","P/L (SGD)"]].copy()
-    position_by_pl["P/L"] = position_by_pl["P/L (SGD)"].map(lambda x: "Profit" if x>=0 else "Loss")
-    position_by_pl = position_by_pl.groupby(["Type","P/L"])[["Name"]].nunique().rename({"Name":"No. of Open Position"}, axis=1).reset_index()
-
-    stack_bar = go.Figure()
-    stack_bar.add_trace(
-        go.Bar(x=position_by_pl[position_by_pl["P/L"]=="Profit"]["Type"], y=position_by_pl[position_by_pl["P/L"]=="Profit"]["No. of Open Position"], name="No. of Position (Profit)", text=position_by_pl[position_by_pl["P/L"]=="Profit"]["No. of Open Position"])
-    )
-    stack_bar.add_trace(
-        go.Bar(x=position_by_pl[position_by_pl["P/L"]=="Loss"]["Type"], y=position_by_pl[position_by_pl["P/L"]=="Loss"]["No. of Open Position"], name="No. of Position (Loss)", text=position_by_pl[position_by_pl["P/L"]=="Loss"]["No. of Open Position"])
-    )
-    stack_bar.update_layout(barmode='stack',
-                            yaxis=dict(showgrid=False, showticklabels=False),
-                            legend=dict(x=0.02,y=0.95),
-                            margin=dict(t=0),
-                            template=TEMPLATE
-    )
-
-
-
-    return stack_bar
-
 def generate_treemap(df):
-    value_by_name = df[["Type","Name","Value (SGD)","P/L (SGD)"]].rename({"P/L (SGD)":"P/L","Value (SGD)":"Value"}, axis=1)
-    for col in ["Value","P/L"]:
-        value_by_name[col] = value_by_name[col]
-    value_by_name[col] = value_by_name[col].map(lambda x: round(x,2))
-
+    value_by_name = df[["Type","Name","Value (SGD)","P/L (SGD)", "P/L (%)"]].rename({"P/L (SGD)":"P/L","Value (SGD)":"Value"}, axis=1)
 
     treemap_fig = px.treemap(value_by_name, path=[px.Constant("Holdings"),"Type","Name"], values="Value", color="P/L" ,
                                                     color_continuous_scale="RdBu",
                                                     range_color = [value_by_name["P/L"].min(), value_by_name["P/L"].max()],
-                                                    hover_data = {"Name":True,"P/L":True,"Value":True})
+                                                    hover_data = {"Name":True,"P/L":":$,.2f","Value":":$,.2f","P/L (%)":":.2%"})
     treemap_fig.update_layout(margin = dict(t=0), template=TEMPLATE)
 
 
@@ -267,7 +234,6 @@ def generate_table(df):
 
 indicator_fig = generate_indicator(df)
 bar_line_fig = generate_bar_line(df)
-stacked_bar_fig = generate_stacked_bar(df)
 table_fig = generate_table(df)
 treemap_fig = generate_treemap(df)
 
@@ -284,12 +250,10 @@ layout = html.Div([
         ]),
         dbc.Row([
             dbc.Col(html.H5(children='Holdings by Value', className="text-center"),
-                            width={"size":4,"offset":4}, className="mt-4"),
-            # dbc.Col(html.H5(children='No. of P/L Position by Asset Types', className="text-center"), width=8, className="mt-4"),
+                            width={"size":4,"offset":4}, className="mt-4")
         ]),
         dbc.Row([
             dbc.Col(dcc.Graph(id="treemap_open",figure=treemap_fig), width={"size":8,"offset":2})
-            # dbc.Col(dcc.Graph(id="stacked_bar_open", figure=stacked_bar_fig), width=4)
         ]),
             dbc.Row([
                 dbc.Col(dbc.Card(html.H3(children='Table',

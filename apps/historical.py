@@ -26,16 +26,16 @@ TEMPLATE = "plotly_white"
 # main KPI
 def generate_indicator(df):
     df_ = df.copy()
-    total_pl = round(df_["P/L (SGD)"].sum())
+    total_pl = df_["P/L (SGD)"].sum()
     avg_pl_per = df_["P/L (%)"].mean()
-    avg_holding = round(df_["Holding (days)"].mean())
+    avg_holding = df_["Holding (days)"].mean()
 
     indicator_fig = go.Figure()
     indicator_fig.add_trace(
         go.Indicator(mode="number",
                         value=total_pl,
                         title = "Total P/L",
-                        number = dict(valueformat="$,"),
+                        number = dict(valueformat="$,.0f"),
                         domain={"row":0, "column":0})
     )
 
@@ -50,6 +50,7 @@ def generate_indicator(df):
         go.Indicator(mode="number",
                         value=avg_holding,
                         title = "Avg Holdings (days)",
+                        number = dict(valueformat=".0f"),
                         domain={"row":0, "column":2})
     )
 
@@ -105,17 +106,13 @@ def generate_line(df):
     cul_pl["DATE(SORT)"] = pd.to_datetime(cul_pl["DATE"], format="%b-%y")
     cul_pl = cul_pl.sort_values(["DATE(SORT)"]).drop("DATE(SORT)", axis=1)
     cul_pl["Cumulative P/L"] = cul_pl["P/L"].cumsum()
-    cul_pl["Cumulative P/L"] = cul_pl["Cumulative P/L"].map(lambda x: round(x))
-    cul_pl["P/L"] = cul_pl["P/L"].map(lambda x: round(x))
-    cul_pl["CUM_TEXT"] = cul_pl["Cumulative P/L"].map(lambda x: "-$" + str(abs(x)) if x <0 else "$" + str(x))
-    cul_pl["PL_TEXT"] = cul_pl["P/L"].map(lambda x: "-$" + str(abs(x)) if x <0 else "$" + str(x))
 
     line_fig = make_subplots(specs=[[{"secondary_y": True}]])
     line_fig.add_trace(
-        go.Scatter(x=cul_pl["DATE"], y=cul_pl["Cumulative P/L"], name="Cumulative P/L",mode="lines+markers+text", text=cul_pl["CUM_TEXT"], textposition="bottom right")
+        go.Scatter(x=cul_pl["DATE"], y=cul_pl["Cumulative P/L"], name="Cumulative P/L",mode="lines+markers+text", texttemplate="%{y:$,.0f}", textposition="bottom right")
     )
     line_fig.add_trace(
-        go.Scatter(x=cul_pl["DATE"], y=cul_pl["P/L"], name="P/L", mode="lines+markers+text",text=cul_pl["PL_TEXT"],textposition="top left",line=dict(dash="dash")),
+        go.Scatter(x=cul_pl["DATE"], y=cul_pl["P/L"], name="P/L", mode="lines+markers+text",texttemplate="%{y:$,.0f}",textposition="top left",line=dict(dash="dash")),
         secondary_y=True
     )
 
@@ -125,8 +122,8 @@ def generate_line(df):
                             margin=dict(t=0),
                             template=TEMPLATE
     )
-    line_fig.update_yaxes(title="Cumulative P/L",secondary_y=False,showgrid=True, zeroline=True)
-    line_fig.update_yaxes(title="P/L",secondary_y=True, showgrid=False, zeroline=False)
+    line_fig.update_yaxes(title="Cumulative P/L",secondary_y=False,showgrid=True, zeroline=True,tickformat="$,.0f")
+    line_fig.update_yaxes(title="P/L",secondary_y=True, showgrid=False, zeroline=False,tickformat="$,.0f")
 
     return line_fig
 
@@ -134,15 +131,12 @@ def generate_line(df):
 # P/L by quotetype
 
 def generate_bar(df):
-    pl_by_type = df.groupby("Type")[["P/L (SGD)"]].sum().reset_index()
-
-    pl_by_type["P/L"] = pl_by_type["P/L (SGD)"].map(lambda x: round(x))
-    pl_by_type["TEXT"] = pl_by_type["P/L"].map(lambda x:  "-$" + str(abs(x)) if x<0 else "$" + str((x)))
+    pl_by_type = df.groupby("Type")[["P/L (SGD)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
     pl_by_type = pl_by_type.sort_values(["P/L"])
 
     bar_fig = go.Figure()
     bar_fig.add_trace(
-        go.Bar(x=pl_by_type["P/L"],y=pl_by_type["Type"], orientation="h", text=pl_by_type["TEXT"], textposition="inside")
+        go.Bar(x=pl_by_type["P/L"],y=pl_by_type["Type"], orientation="h", texttemplate="%{x:$,.0f}", textposition="inside", hovertemplate = "%{y}, %{x:$,.0f}", name="P/L")
     )
     bar_fig.update_layout(
                         xaxis=dict(showgrid=False, showticklabels=False),
@@ -180,27 +174,22 @@ def generate_stack_bar(df):
 # P/L by name
 def generate_treemap(df):
     pl_by_name = df.groupby(["Type","Name"])[["P/L (SGD)","P/L (%)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
-    pl_by_name["P/L"] = pl_by_name["P/L"].map(lambda x: round(x))
 
-    pl_by_name_profit = pl_by_name[pl_by_name["P/L"]>=0].copy()
-    pl_by_name_profit["Profit"] = pl_by_name_profit["P/L"]
-    pl_by_name_profit["Profit (%)"] = pl_by_name_profit["P/L (%)"].map(lambda x: str(round(x*100)) + "%")
+    pl_by_name_profit = pl_by_name[pl_by_name["P/L"]>=0].rename({"P/L":"Profit","P/L (%)":"Profit (%)"}, axis=1)
+    pl_by_name_loss = pl_by_name[pl_by_name["P/L"]<0].rename({"P/L":"Loss","P/L (%)":"Loss (%)"}, axis=1)
+    pl_by_name_loss["Loss"] = pl_by_name_loss["Loss"].map(lambda x: abs(x))
+    pl_by_name_loss["Loss (%)"] = pl_by_name_loss["Loss (%)"].map(lambda x: abs(x))
 
-    pl_by_name_loss = pl_by_name[pl_by_name["P/L"]<0].copy()
-    pl_by_name_loss["Loss"] = pl_by_name_loss["P/L"].map(lambda x: abs(x))
-    pl_by_name_loss["Loss (%)"] = pl_by_name_loss["P/L (%)"].map(lambda x: "-" + str(round(x*100)) + "%")
-
-
-    treemap_closed_profit = px.treemap(pl_by_name_profit, path=[px.Constant("Financial Asset"),"Type","Name"], values="Profit", color="Profit" ,
+    treemap_closed_profit = px.treemap(pl_by_name_profit, path=[px.Constant("Asset Types"),"Type","Name"], values="Profit", color="Profit (%)" ,
                                                     color_continuous_scale="RdBu",
-                                                    range_color = [0, pl_by_name_profit["P/L"].max()],
-                                                    hover_data = {"Name":True,"P/L":False,"Profit":True,"Profit (%)":True})
+                                                    range_color = [pl_by_name_profit["Profit (%)"].min(), pl_by_name_profit["Profit (%)"].max()],
+                                                    hover_data = {"Name":True,"Profit":":$,.0f","Profit (%)":":.0%"},branchvalues="total")
     treemap_closed_profit.update_layout(margin = dict(t=0), template=TEMPLATE)
 
-    treemap_closed_loss = px.treemap(pl_by_name_loss, path=[px.Constant("Financial Asset"),"Type","Name"], values="Loss", color="Loss" ,
+    treemap_closed_loss = px.treemap(pl_by_name_loss, path=[px.Constant("Asset Types"),"Type","Name"], values="Loss", color="Loss (%)" ,
                                                     color_continuous_scale="RdBu_r",
-                                                    range_color = [0, pl_by_name_loss["P/L"].max()],
-                                                    hover_data = {"Name":True,"P/L":False,"Loss":True,"Loss (%)":True})
+                                                    range_color = [pl_by_name_loss["Loss (%)"].min(), pl_by_name_loss["Loss (%)"].max()],
+                                                    hover_data = {"Name":True,"Loss":":$,.0f","Loss (%)":":.0%"},branchvalues="total")
     treemap_closed_loss.update_layout(margin = dict(t=0), template=TEMPLATE)
 
     return treemap_closed_profit, treemap_closed_loss
