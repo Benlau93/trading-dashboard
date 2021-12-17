@@ -4,6 +4,7 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 from dash.dependencies import Input, Output
 from dash import dash_table
 from app import app
@@ -54,24 +55,33 @@ def generate_indicator(df):
     return indicator_fig
 
 
-def generate_bar(df):
-    pl_by_name = df.sort_values("Date")[["Name","P/L (SGD)"]].rename({"P/L (SGD)":"P/L"}, axis=1)
+def generate_bar_line(df):
+    pl_by_name = df.sort_values("Date")[["Name","P/L (SGD)","Holdings (days)"]].rename({"P/L (SGD)":"P/L"}, axis=1)
 
     pl_by_name["P/L"] = pl_by_name["P/L"].map(lambda x: round(x,2))
     pl_by_name["TEXT"] = pl_by_name["P/L"].map(lambda x:  "-$" + str(abs(x)) if x<0 else "$" + str((x)))
 
-    bar_fig = go.Figure()
-    bar_fig.add_trace(
+    bar_line_fig = make_subplots(specs=[[{"secondary_y": True}]])
+    bar_line_fig.add_trace(
         go.Bar(x=pl_by_name["Name"],y=pl_by_name["P/L"], text=pl_by_name["TEXT"], textposition="outside")
     )
-    bar_fig.update_layout(
+
+    bar_line_fig.add_trace(
+        go.Scatter(x=pl_by_name["Name"],y=pl_by_name["Holdings (days)"], text=pl_by_name["Holdings (days)"], mode="lines+markers+text",textposition="bottom left"),
+        secondary_y=True
+    )
+
+
+    bar_line_fig.update_layout(
                         xaxis=dict(showgrid=False),
-                        yaxis=dict(showgrid=False, showticklabels=False),
                         margin=dict(t=0),
                         template=TEMPLATE                 
     )
+    bar_line_fig.update_yaxes(secondary_y=True, showgrid=False, zeroline=False, showticklabels=False, rangemode="tozero", anchor="y2")
+    bar_line_fig.update_yaxes(secondary_y=False, showgrid=False, zeroline=True, showticklabels=False)
 
-    return bar_fig
+
+    return bar_line_fig
 
 def generate_stacked_bar(df):
     position_by_pl = df[["Type","Name","P/L (SGD)"]].copy()
@@ -95,6 +105,23 @@ def generate_stacked_bar(df):
 
 
     return stack_bar
+
+def generate_treemap(df):
+    value_by_name = df[["Type","Name","Value (SGD)","P/L (SGD)"]].rename({"P/L (SGD)":"P/L","Value (SGD)":"Value"}, axis=1)
+    for col in ["Value","P/L"]:
+        value_by_name[col] = value_by_name[col]
+    value_by_name[col] = value_by_name[col].map(lambda x: round(x,2))
+
+
+    treemap_fig = px.treemap(value_by_name, path=[px.Constant("Holdings"),"Type","Name"], values="Value", color="P/L" ,
+                                                    color_continuous_scale="RdBu",
+                                                    range_color = [value_by_name["P/L"].min(), value_by_name["P/L"].max()],
+                                                    hover_data = {"Name":True,"P/L":True,"Value":True})
+    treemap_fig.update_layout(margin = dict(t=0), template=TEMPLATE)
+
+
+    return treemap_fig
+
 
 def generate_table(df):
     df_ = df.copy()
@@ -136,22 +163,32 @@ def generate_table(df):
 
 
 indicator_fig = generate_indicator(df)
-bar_fig = generate_bar(df)
+bar_line_fig = generate_bar_line(df)
 stacked_bar_fig = generate_stacked_bar(df)
 table_fig = generate_table(df)
+treemap_fig = generate_treemap(df)
 
 layout = html.Div([
     dbc.Container([
         dbc.Row([
-            dbc.Col(dbc.Card(dbc.CardBody(html.H1("Portfolio",className="card-title"))), width={"size":8,"offset":1}, align="center", className="mt-2"),
+            dbc.Col(dbc.Card(dbc.CardBody(html.H1("Portfolio (Current Positions)",className="card-title"))), width={"size":8,"offset":1}, align="center", className="mt-2"),
             dbc.Col(dbc.Button("Add Transaction",color="success",href="/portfolio/add",style=dict(margin=10)),width={"size":3})
         ],align="center"),
         dbc.Row([
             dbc.Col(dcc.Graph(id="indicator_open", figure=indicator_fig), width=4, align="centre"),
-            dbc.Col(dcc.Graph(id="bar_open", figure=bar_fig),width=8, align="center")
+            dbc.Col(dcc.Graph(id="bar_open", figure=bar_line_fig),width=8, align="center")
+        ]),
+        dbc.Row([
+            dbc.Col(html.H5(children='Holdings by Value', className="text-center"),
+                            width=4, className="mt-4"),
+            dbc.Col(html.H5(children='No. of P/L Position by Asset Types', className="text-center"), width=8, className="mt-4"),
+        ]),
+        dbc.Row([
+            dbc.Col(dcc.Graph(id="treemap_open",figure=treemap_fig), width=6),
+            dbc.Col(dcc.Graph(id="stacked_bar_open", figure=stacked_bar_fig), width=4)
         ]),
             dbc.Row([
-                dbc.Col(dbc.Card(html.H3(children='Breakdown',
+                dbc.Col(dbc.Card(html.H3(children='Table',
                                  className="text-center text-light bg-dark"), body=True, color="dark")
                 , className="mt-0 mb-4")
             ]),
