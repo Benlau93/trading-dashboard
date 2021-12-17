@@ -17,34 +17,32 @@ df = pd.read_excel("Transaction Data.xlsx", sheet_name="Open Position", parse_da
 # define template used
 TEMPLATE = "plotly_white"
 
-# total portfolio value
-current_value = df["Value (SGD)"].sum()
-buy_in_amount = df["Amount (SGD)"].sum()
 
-main_indicator = go.Figure()
-main_indicator.add_trace(
-    go.Indicator(mode="number+delta", title="Total Portfolio Value",value=current_value, number = dict(valueformat="$,.2f"),delta={"reference":buy_in_amount,"position":"bottom","valueformat":"$,.2f"})
-)
-
-main_indicator.update_layout(
-        height=300,
-        template=TEMPLATE
-)
 
 # main kpi
 def generate_indicator(df):
     df_ = df.copy()
+    
+    current_value = df_["Value (SGD)"].sum()
     unrealised_pl = df_["P/L (SGD)"].sum()
     unrealised_pl_per = df_["P/L (SGD)"].sum() / df_["Amount (SGD)"].sum()
     total_position = df_["Name"].nunique()
 
     indicator_fig = go.Figure()
     indicator_fig.add_trace(
+        go.Indicator(mode="number", 
+                    title="Total Portfolio Value",
+                    value=current_value, 
+                    number = dict(valueformat="$,.2f"),
+                    domain={"x":[0.2,0.8],"y":[0.6,1]})
+    )
+
+    indicator_fig.add_trace(
         go.Indicator(mode="number",
                         value=unrealised_pl,
                         title = "Unrealized P/L",
                         number = dict(valueformat="$,.2f"),
-                        domain={"row":0, "column":0})
+                        domain={"x":[0,0.33],"y":[0.1,0.4]})
     )
 
     indicator_fig.add_trace(
@@ -52,137 +50,50 @@ def generate_indicator(df):
                         value=unrealised_pl_per,
                         title = "Unrealized P/L (%)",
                         number = dict(valueformat=".2%"),
-                        domain={"row":1, "column":0})
+                        domain={"x":[0.33,0.66],"y":[0.1,0.4]})
     )
     indicator_fig.add_trace(
         go.Indicator(mode="number",
                         value=total_position,
-                        title = "Total Position",
-                        domain={"row":2, "column":0})
+                        title = "Total Position(s)",
+                        domain={"x":[0.66,1],"y":[0.1,0.4]})
     )
 
     indicator_fig.update_layout(
-        grid= {"rows":3, "columns":1},
-        height=600,
+        height=350,
         template=TEMPLATE
     )
 
     return indicator_fig
 
 
-def generate_bar_line(df):
-    pl_by_name = df.sort_values("Date")[["Name","P/L (SGD)","P/L (%)"]].rename({"P/L (SGD)":"P/L"}, axis=1)
+def generate_bar(df, value):
+    VIEW = "P/L" if value == "Absolute" else "P/L (%)"
+    FORMAT = "%{y:$,.2f}" if value == "Absolute" else "%{y:.2%}"
+    pl_by_name = df.sort_values("Date")[["Name","Symbol","P/L (SGD)","P/L (%)"]].rename({"P/L (SGD)":"P/L"}, axis=1)
 
-    bar_line_fig = make_subplots(specs=[[{"secondary_y": True}]])
-    bar_line_fig.add_trace(
-        go.Bar(x=pl_by_name["Name"],y=pl_by_name["P/L"],texttemplate ="%{y:$,.2f}", textposition="inside", yaxis="y1",name="P/L", hovertemplate="%{x}, %{y:$,.2f}")
+    bar_fig = go.Figure()
+    bar_fig.add_trace(
+        go.Bar(x=pl_by_name["Symbol"],y=pl_by_name[VIEW],texttemplate =FORMAT, textposition="inside", yaxis="y1",name=VIEW, hovertemplate="%{x}, "+FORMAT)
     )
 
-    bar_line_fig.add_trace(
-        go.Scatter(x=pl_by_name["Name"],y=pl_by_name["P/L (%)"], texttemplate="%{y:.2%}", name="P/L (%)",mode="markers+text",textposition="bottom left",yaxis="y2"),
-        secondary_y=True
-    )
-    # handle axis
-    GRIDLINES = 4
-    
-    y1_min = pl_by_name["P/L"].min()
-    y1_max = pl_by_name["P/L"].max()
-
-    if y1_min < 0:
-        y1_range = y1_max - y1_min
-    else:
-        y1_range = y1_max
-
-    y1_range = y1_range * 1000 
-    y1_len = len(str(math.floor(y1_range)))
-
-    y1_pow10_divisor = math.pow(10, y1_len - 1)
-    y1_firstdigit = math.floor(y1_range / y1_pow10_divisor)
-    y1_max_base = y1_pow10_divisor * y1_firstdigit / 1000
-
-    y1_dtick = y1_max_base / GRIDLINES
-
-    y1_pow10_divisor = math.pow(10, y1_len - 1) / 1000 
-    y1_range = y1_range / 1000
-
-
-    y2_min = pl_by_name["P/L (%)"].min()
-    y2_max = pl_by_name["P/L (%)"].max()
-
-    if y2_min < 0:
-        y2_range = y2_max - y2_min
-    else:
-        y2_range = y2_max
-
-    y2_range = y2_range * 1000
-    y2_len = len(str(math.floor(y2_range)))
-
-    y2_pow10_divisor = math.pow(10, y2_len - 1)
-    y2_firstdigit = math.floor(y2_range / y2_pow10_divisor)
-    y2_max_base = y2_pow10_divisor * y2_firstdigit / 1000  
-
-    y2_dtick = y2_max_base / GRIDLINES
-
-    y2_pow10_divisor = math.pow(10, y2_len - 1) / 1000 
-    y2_range = y2_range / 1000
-
-
-    y1_dtick_ratio = y1_range / y1_dtick
-    y2_dtick_ratio = y2_range / y2_dtick
-
-    global_dtick_ratio = max(y1_dtick_ratio, y2_dtick_ratio)
-
-
-    negative = False
-
-    if y1_min < 0:
-        negative = True
-        y1_negative_ratio = abs(y1_min / y1_range) * global_dtick_ratio
-    else:
-        y1_negative_ratio = 0
-
-    if y2_min < 0:
-        negative = True
-        y2_negative_ratio = abs(y2_min / y2_range) * global_dtick_ratio
-    else:
-        y2_negative_ratio = 0
-
-    global_negative_ratio = max(y1_negative_ratio, y2_negative_ratio) + 0.1
-
-    if negative:
-        y1_range_min = (global_negative_ratio) * y1_dtick * -1
-        y2_range_min = (global_negative_ratio) * y2_dtick * -1
-    else:
-        y1_range_min = 0
-        y2_range_min = 0
-
-    y1_positive_ratio = abs(y1_max / y1_range) * global_dtick_ratio
-    y2_positive_ratio = abs(y2_max / y2_range) * global_dtick_ratio
-
-    global_positive_ratio = max(y1_positive_ratio, y2_positive_ratio) + 0.1
-
-    y1_range_max = (global_positive_ratio) * y1_dtick
-    y2_range_max = (global_positive_ratio) * y2_dtick
-
-
-    bar_line_fig.update_layout(
-                        xaxis=dict(showgrid=False),
+    bar_fig.update_layout(
+                        xaxis=dict(showgrid=False, position=1,tickangle=0),
                         margin=dict(t=0),
+                        yaxis=(dict(showgrid=False,showticklabels=False,zerolinecolor="black")),
                         template=TEMPLATE                 
-    )
-    bar_line_fig.update_yaxes(secondary_y=True, showgrid=False, zeroline=False, showticklabels=False, range=[y2_range_min, y2_range_max])
-    bar_line_fig.update_yaxes(secondary_y=False, showgrid=False, zeroline=True, showticklabels=False, zerolinecolor="black", range=[y1_range_min, y1_range_max])
+    )                
 
+    return bar_fig
 
-    return bar_line_fig
+def generate_treemap(df, value):
+    VIEW = "P/L" if value == "Absolute" else "P/L (%)"
+    value_by_name = df[["Type","Symbol","Name","Value (SGD)","P/L (SGD)", "P/L (%)"]].rename({"P/L (SGD)":"P/L","Value (SGD)":"Value","Symbol":"Ticker"}, axis=1)
 
-def generate_treemap(df):
-    value_by_name = df[["Type","Name","Value (SGD)","P/L (SGD)", "P/L (%)"]].rename({"P/L (SGD)":"P/L","Value (SGD)":"Value"}, axis=1)
-
-    treemap_fig = px.treemap(value_by_name, path=[px.Constant("Holdings"),"Type","Name"], values="Value", color="P/L" ,
+    treemap_fig = px.treemap(value_by_name, path=[px.Constant("Positions"),"Type","Name"], values="Value", color=VIEW ,
                                                     color_continuous_scale="RdBu",
-                                                    range_color = [value_by_name["P/L"].min(), value_by_name["P/L"].max()],
-                                                    hover_data = {"Name":True,"P/L":":$,.2f","Value":":$,.2f","P/L (%)":":.2%"})
+                                                    range_color = [value_by_name[VIEW].min(), value_by_name[VIEW].max()],
+                                                    hover_data = {"Name":False,"Ticker":True,"P/L":":$,.2f","Value":":$,.2f","P/L (%)":":.2%"}, branchvalues="total")
     treemap_fig.update_layout(margin = dict(t=0), template=TEMPLATE)
 
 
@@ -231,32 +142,52 @@ def generate_table(df):
 
     return table_fig
 
-
 indicator_fig = generate_indicator(df)
-bar_line_fig = generate_bar_line(df)
 table_fig = generate_table(df)
-treemap_fig = generate_treemap(df)
+
 
 layout = html.Div([
     dbc.Container([
         dbc.Row([
-            dbc.Col(dcc.Graph(id="main-indicator",figure=main_indicator), width={"size":6,"offset":3}),
-            dbc.Col(dbc.Button("Add Transaction",color="success",href="/portfolio/add",style=dict(margin=10)),width={"size":3}, align="start")
+            dbc.Col(dbc.Button("Add Transaction",color="success",href="/portfolio/add",style=dict(margin=10)),width={"size":3,"offset":9}, align="start")
+        ]),
+        dbc.Row([
+            dbc.Col(dcc.Graph(id="main-indicator",figure=indicator_fig), width={"size":8,"offset":2}),
         ],align="center"),
+        dbc.Row([
+            dbc.Col(dbc.Card(html.H3(children='BreakDown',
+                                 className="text-center text-light bg-dark"), body=True, color="dark")
+                , className="mt-4 mb-4")
+        ]),
+        dbc.Row([
+            dbc.Col(html.H3("Select View:"),width={"size":3,"offset":3}),
+            dbc.Col([
+                dbc.RadioItems(
+                    id="radios",
+                    className="btn-group",
+                    inputClassName="btn-check",
+                    labelClassName="btn btn-outline-info",
+                    labelCheckedClassName="active",
+                    options=[
+                        {"label": "Absolute", "value": "Absolute"},
+                        {"label": "Percentage", "value": "Percentage"}
+                    ],
+                    value="Absolute")
+            ], width=3)
+        ], align="center"),
 
         dbc.Row([
-            dbc.Col(dcc.Graph(id="indicator_open", figure=indicator_fig), width=4, align="centre"),
-            dbc.Col(dcc.Graph(id="bar_open", figure=bar_line_fig),width=8, align="center")
+            dbc.Col(html.H5(children='Position by P/L', className="text-center"),
+                            width={"size":2,"offset":2}, className="mt-4"),
+            dbc.Col(html.H5(children='Position by Value', className="text-center"),
+                            width={"size":2, "offset":4}, className="mt-4")
         ]),
         dbc.Row([
-            dbc.Col(html.H5(children='Holdings by Value', className="text-center"),
-                            width={"size":4,"offset":4}, className="mt-4")
+            dbc.Col(dcc.Graph(id="bar_open"), width={"size":6}),
+            dbc.Col(dcc.Graph(id="treemap_open"), width={"size":6})
         ]),
         dbc.Row([
-            dbc.Col(dcc.Graph(id="treemap_open",figure=treemap_fig), width={"size":8,"offset":2})
-        ]),
-            dbc.Row([
-                dbc.Col(dbc.Card(html.H3(children='Table',
+            dbc.Col(dbc.Card(html.H3(children='Table',
                                  className="text-center text-light bg-dark"), body=True, color="dark")
                 , className="mt-0 mb-4")
             ]),
@@ -265,3 +196,14 @@ layout = html.Div([
         ], align="center")
     ])
 ])
+
+@app.callback(
+    Output(component_id="bar_open",component_property="figure"),
+    Output(component_id="treemap_open",component_property="figure"),
+    Input(component_id="radios", component_property="value")
+)
+def update_graph(value):
+    bar_fig = generate_bar(df, value)
+    treemap_fig = generate_treemap(df, value)
+
+    return bar_fig, treemap_fig
