@@ -8,6 +8,7 @@ from plotly.subplots import make_subplots
 from dash.dependencies import Input, Output
 from dash import dash_table
 from app import app
+import math
 
 # read in open position
 df = pd.read_excel("Transaction Data.xlsx", sheet_name="Open Position", parse_dates=["Date"])
@@ -70,29 +71,113 @@ def generate_indicator(df):
 
 
 def generate_bar_line(df):
-    pl_by_name = df.sort_values("Date")[["Name","P/L (SGD)","Holdings (days)"]].rename({"P/L (SGD)":"P/L"}, axis=1)
+    pl_by_name = df.sort_values("Date")[["Name","P/L (SGD)","P/L (%)"]].rename({"P/L (SGD)":"P/L"}, axis=1)
 
     pl_by_name["P/L"] = pl_by_name["P/L"].map(lambda x: round(x,2))
     pl_by_name["TEXT"] = pl_by_name["P/L"].map(lambda x:  "-$" + str(abs(x)) if x<0 else "$" + str((x)))
+    pl_by_name["P/L (%)"] = pl_by_name["P/L (%)"].map(lambda x: round(x*100,2))
+    pl_by_name["TEXT_%"] = pl_by_name["P/L (%)"].map(lambda x:  "-" + str(abs(x)) + "%" if x<0 else str(x)+ "%")
 
     bar_line_fig = make_subplots(specs=[[{"secondary_y": True}]])
     bar_line_fig.add_trace(
-        go.Bar(x=pl_by_name["Name"],y=pl_by_name["P/L"], text=pl_by_name["TEXT"], textposition="outside")
+        go.Bar(x=pl_by_name["Name"],y=pl_by_name["P/L"], text=pl_by_name["TEXT"], textposition="inside", yaxis="y1",name="P/L")
     )
 
     bar_line_fig.add_trace(
-        go.Scatter(x=pl_by_name["Name"],y=pl_by_name["Holdings (days)"], text=pl_by_name["Holdings (days)"], mode="lines+markers+text",textposition="bottom left"),
+        go.Scatter(x=pl_by_name["Name"],y=pl_by_name["P/L (%)"], text=pl_by_name["TEXT_%)"], name="P/L (%)",mode="lines+markers+text",textposition="bottom left",yaxis="y2"),
         secondary_y=True
     )
+    # handle axis
+    GRIDLINES = 4
+    
+    y1_min = pl_by_name["P/L"].min()
+    y1_max = pl_by_name["P/L"].max()
+
+    if y1_min < 0:
+        y1_range = y1_max - y1_min
+    else:
+        y1_range = y1_max
+
+    y1_range = y1_range * 1000 
+    y1_len = len(str(math.floor(y1_range)))
+
+    y1_pow10_divisor = math.pow(10, y1_len - 1)
+    y1_firstdigit = math.floor(y1_range / y1_pow10_divisor)
+    y1_max_base = y1_pow10_divisor * y1_firstdigit / 1000
+
+    y1_dtick = y1_max_base / GRIDLINES
+
+    y1_pow10_divisor = math.pow(10, y1_len - 1) / 1000 
+    y1_range = y1_range / 1000
+
+
+    y2_min = pl_by_name["P/L (%)"].min()
+    y2_max = pl_by_name["P/L (%)"].max()
+
+    if y2_min < 0:
+        y2_range = y2_max - y2_min
+    else:
+        y2_range = y2_max
+
+    y2_range = y2_range * 1000
+    y2_len = len(str(math.floor(y2_range)))
+
+    y2_pow10_divisor = math.pow(10, y2_len - 1)
+    y2_firstdigit = math.floor(y2_range / y2_pow10_divisor)
+    y2_max_base = y2_pow10_divisor * y2_firstdigit / 1000  
+
+    y2_dtick = y2_max_base / GRIDLINES
+
+    y2_pow10_divisor = math.pow(10, y2_len - 1) / 1000 
+    y2_range = y2_range / 1000
+
+
+    y1_dtick_ratio = y1_range / y1_dtick
+    y2_dtick_ratio = y2_range / y2_dtick
+
+    global_dtick_ratio = max(y1_dtick_ratio, y2_dtick_ratio)
+
+
+    negative = False
+
+    if y1_min < 0:
+        negative = True
+        y1_negative_ratio = abs(y1_min / y1_range) * global_dtick_ratio
+    else:
+        y1_negative_ratio = 0
+
+    if y2_min < 0:
+        negative = True
+        y2_negative_ratio = abs(y2_min / y2_range) * global_dtick_ratio
+    else:
+        y2_negative_ratio = 0
+
+    global_negative_ratio = max(y1_negative_ratio, y2_negative_ratio) + 0.1
+
+    if negative:
+        y1_range_min = (global_negative_ratio) * y1_dtick * -1
+        y2_range_min = (global_negative_ratio) * y2_dtick * -1
+    else:
+        y1_range_min = 0
+        y2_range_min = 0
+
+    y1_positive_ratio = abs(y1_max / y1_range) * global_dtick_ratio
+    y2_positive_ratio = abs(y2_max / y2_range) * global_dtick_ratio
+
+    global_positive_ratio = max(y1_positive_ratio, y2_positive_ratio) + 0.1
+
+    y1_range_max = (global_positive_ratio) * y1_dtick
+    y2_range_max = (global_positive_ratio) * y2_dtick
 
 
     bar_line_fig.update_layout(
                         xaxis=dict(showgrid=False),
                         margin=dict(t=0),
+                        legend=dict(x=0.02,y=0.95),
                         template=TEMPLATE                 
     )
-    bar_line_fig.update_yaxes(secondary_y=True, showgrid=False, zeroline=False, showticklabels=False, rangemode="tozero", anchor="y2")
-    bar_line_fig.update_yaxes(secondary_y=False, showgrid=False, zeroline=True, showticklabels=False)
+    bar_line_fig.update_yaxes(secondary_y=True, showgrid=False, zeroline=False, showticklabels=False, range=[y2_range_min, y2_range_max])
+    bar_line_fig.update_yaxes(secondary_y=False, showgrid=False, zeroline=True, showticklabels=False, zerolinecolor="black", range=[y1_range_min, y1_range_max])
 
 
     return bar_line_fig
@@ -144,10 +229,12 @@ def generate_table(df):
                     "Value (SGD)":"Value",
                     "P/L (SGD)":"Unrealised P/L",
                     "P/L (%)":"Unrealised P/L (%)",
-                    "Weightage":"% of Portfolio"}, axis=1)
-    df_ = df_[["Name","Price","Current Price","Unrealised P/L","Unrealised P/L (%)","Value","Holdings (days)","% of Portfolio"]].sort_values(["Unrealised P/L"])
+                    "Weightage":"% of Portfolio",
+                    "Shares":"Qty"}, axis=1)
+    df_ = df_[["Name","Date","Qty","Price","Current Price","Unrealised P/L","Unrealised P/L (%)","Value","Holdings (days)","% of Portfolio"]].sort_values(["Unrealised P/L"])
     
     # formatting
+    df_["Date"] = df_["Date"].dt.date
     money = dash_table.FormatTemplate.money(2)
     percentage = dash_table.FormatTemplate.percentage(2)
 
@@ -155,6 +242,8 @@ def generate_table(df):
         id="table",
         columns = [
             dict(id="Name", name="Name"),
+            dict(id="Date", name="Date"),
+            dict(id="Qty", name="Qty"),
             dict(id="Price", name="Price",type="numeric",format=money),
             dict(id="Current Price", name="Current Price",type="numeric",format=money),
             dict(id="Unrealised P/L", name="Unrealised P/L",type="numeric",format=money),
@@ -185,24 +274,22 @@ treemap_fig = generate_treemap(df)
 layout = html.Div([
     dbc.Container([
         dbc.Row([
-            dbc.Col(dbc.Card(dbc.CardBody(html.H1("Portfolio (Current Positions)",className="card-title"))), width={"size":8,"offset":1}, align="center", className="mt-2"),
-            dbc.Col(dbc.Button("Add Transaction",color="success",href="/portfolio/add",style=dict(margin=10)),width={"size":3})
+            dbc.Col(dcc.Graph(id="main-indicator",figure=main_indicator), width={"size":6,"offset":3}),
+            dbc.Col(dbc.Button("Add Transaction",color="success",href="/portfolio/add",style=dict(margin=10)),width={"size":3}, align="start")
         ],align="center"),
-        dbc.Row([
-            dbc.Col(dcc.Graph(id="main-indicator",figure=main_indicator), width={"size":8,"offset":2})
-        ], align="center"),
+
         dbc.Row([
             dbc.Col(dcc.Graph(id="indicator_open", figure=indicator_fig), width=4, align="centre"),
             dbc.Col(dcc.Graph(id="bar_open", figure=bar_line_fig),width=8, align="center")
         ]),
         dbc.Row([
             dbc.Col(html.H5(children='Holdings by Value', className="text-center"),
-                            width=4, className="mt-4"),
-            dbc.Col(html.H5(children='No. of P/L Position by Asset Types', className="text-center"), width=8, className="mt-4"),
+                            width={"size":4,"offset":4}, className="mt-4"),
+            # dbc.Col(html.H5(children='No. of P/L Position by Asset Types', className="text-center"), width=8, className="mt-4"),
         ]),
         dbc.Row([
-            dbc.Col(dcc.Graph(id="treemap_open",figure=treemap_fig), width=6),
-            dbc.Col(dcc.Graph(id="stacked_bar_open", figure=stacked_bar_fig), width=4)
+            dbc.Col(dcc.Graph(id="treemap_open",figure=treemap_fig), width={"size":8,"offset":2})
+            # dbc.Col(dcc.Graph(id="stacked_bar_open", figure=stacked_bar_fig), width=4)
         ]),
             dbc.Row([
                 dbc.Col(dbc.Card(html.H3(children='Table',
