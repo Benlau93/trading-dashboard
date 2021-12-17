@@ -12,7 +12,7 @@ import math
 
 # read in open position
 df = pd.read_excel("Transaction Data.xlsx", sheet_name="Open Position", parse_dates=["Date"])
-
+df_pl = pd.read_csv("Historical PL.csv", parse_dates=["Date"])
 
 # define template used
 TEMPLATE = "plotly_white"
@@ -74,7 +74,7 @@ def generate_bar(df, value):
 
     bar_fig = go.Figure()
     bar_fig.add_trace(
-        go.Bar(x=pl_by_name["Symbol"],y=pl_by_name[VIEW],texttemplate =FORMAT, textposition="inside", yaxis="y1",name=VIEW, hovertemplate="%{x}, "+FORMAT)
+        go.Bar(x=pl_by_name["Symbol"],y=pl_by_name[VIEW],texttemplate =FORMAT, textposition="inside",name=VIEW, hovertemplate="%{x}, "+FORMAT)
     )
 
     bar_fig.update_layout(
@@ -98,6 +98,27 @@ def generate_treemap(df, value):
 
 
     return treemap_fig
+
+
+def generate_line(df, value):
+    VIEW = "P/L" if value == "Absolute" else "P/L (%)"
+    FORMAT = "%{y:$,.2f}" if value == "Absolute" else "%{y:.2%}"
+    df_ = df.rename({"P/L (SGD)":"P/L"}, axis=1).copy()
+    df_ = df_.groupby("Date").sum().reset_index()
+    df_["P/L (%)"] = df_["P/L"] / df_["Amount (SGD)"]
+
+    line_fig = go.Figure()
+    line_fig.add_trace(
+        go.Scatter(x=df_["Date"], y=df_[VIEW], mode="lines+markers+text", texttemplate=FORMAT, textposition="bottom right")
+    )
+    line_fig.update_layout(
+        margin=dict(t=0),
+        xaxis=dict(showgrid=False),
+        yaxis=dict(zerolinecolor="black",title=VIEW, tickformat=FORMAT[4:-3] + "0" + FORMAT[-2]),
+        template=TEMPLATE
+    )
+
+    return line_fig
 
 
 def generate_table(df):
@@ -187,6 +208,10 @@ layout = html.Div([
             dbc.Col(dcc.Graph(id="treemap_open"), width={"size":6})
         ]),
         dbc.Row([
+            dbc.Col(dcc.Graph(id="line_open"), width={"size":8}),
+            # dbc.Col(dcc.Graph(id="treemap_open"), width={"size":6})
+        ]),
+        dbc.Row([
             dbc.Col(dbc.Card(html.H3(children='Table',
                                  className="text-center text-light bg-dark"), body=True, color="dark")
                 , className="mt-0 mb-4")
@@ -200,10 +225,12 @@ layout = html.Div([
 @app.callback(
     Output(component_id="bar_open",component_property="figure"),
     Output(component_id="treemap_open",component_property="figure"),
+    Output(component_id="line_open",component_property="figure"),
     Input(component_id="radios", component_property="value")
 )
 def update_graph(value):
     bar_fig = generate_bar(df, value)
     treemap_fig = generate_treemap(df, value)
+    line_fig = generate_line(df_pl, value)
 
-    return bar_fig, treemap_fig
+    return bar_fig, treemap_fig, line_fig
