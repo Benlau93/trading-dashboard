@@ -167,8 +167,8 @@ def generate_table(df):
     table_fig = dash_table.DataTable(
         id="table-open",
         columns = [
-            dict(id="Name", name="Name"),
             dict(id="Date", name="Date"),
+            dict(id="Name", name="Name"),
             dict(id="Qty", name="Qty"),
             dict(id="Price", name="Price",type="numeric",format=money),
             dict(id="Current Price", name="Current Price",type="numeric",format=money),
@@ -193,9 +193,12 @@ def generate_table(df):
     )
 
     return table_fig
-def generate_transaction(df, id):
+def generate_transaction(data, id):
+    open_ = df[["Symbol","Date"]].rename({"Date":"Date_Open"},axis=1).copy()
+    df_ = pd.merge(data, open_, on="Symbol")
+    df_ = df_[df_["Date"]>=df_["Date_Open"]].copy()
+    df_ = df_.rename({"Amount (SGD)":"Value"},axis=1).copy()
 
-    df_ = df.rename({"Amount (SGD)":"Value"},axis=1).copy()
     # get transactional data
     if id == None or len(id) == 0:
         df_ = df_.sort_values("Date").copy()
@@ -256,7 +259,7 @@ layout = html.Div([
                 , className="mt-4 mb-4")
         ]),
         dbc.Row([
-            dbc.Col(html.H3("Select View:"),width={"size":3,"offset":3}),
+            dbc.Col(html.H3("Select View:"),width=3),
             dbc.Col([
                 dbc.RadioItems(
                     id="radios",
@@ -270,7 +273,7 @@ layout = html.Div([
                     ],
                     value="Absolute")
             ], width=3)
-        ], align="center"),
+        ], align="center", justify="center"),
 
         dbc.Row([
             dbc.Col(html.H5(children='Position by P/L', className="text-center"),
@@ -279,15 +282,15 @@ layout = html.Div([
                             width={"size":2, "offset":4}, className="mt-4")
         ]),
         dbc.Row([
-            dbc.Col(dcc.Graph(id="bar_open"), width={"size":6}),
-            dbc.Col(dcc.Graph(id="treemap_open"), width={"size":6})
+            dbc.Col(dcc.Graph(id="bar_open"), width=6),
+            dbc.Col(dcc.Graph(id="treemap_open"), width=6)
         ]),
         dbc.Row([
             dbc.Col(html.H5(children='P/L over Time', className="text-center"),
-                            width={"size":4,"offset":4}, className="mt-4")
-        ]),
+                            width=4, className="mt-4")
+        ], justify="center"),
         dbc.Row([
-            dbc.Col(dcc.Graph(id="line_open"), width={"size":8}),
+            dbc.Col(dcc.Graph(id="line_open"), width=8),
             dbc.Col(dbc.Card(
                 dbc.CardBody([
                     html.H4("Select Filters", className="text-center"),
@@ -306,19 +309,19 @@ layout = html.Div([
             ]),
         dbc.Row([
             dbc.Col(html.H5(children='Open Position(s)', className="text-center"),
-                                width={"size":6, "offset":3}, className="mt-2")
-            ]),
+                                width=6, className="mt-2")
+            ], justify="center"),
         dbc.Row([
-            dbc.Col(table_fig, width={"size":10,"offset":1})
-        ], align="center"),
+            dbc.Col(table_fig, width=10)
+        ], align="center", justify="center"),
         html.Br(),
         dbc.Row([
             dbc.Col(html.H5(children='Transactions', className="text-center"),
-                                width={"size":6, "offset":3}, className="mt-2")
-            ]),
+                                width=6, className="mt-2")
+            ], justify="center"),
         dbc.Row([
-            dbc.Col(id="transaction-container-open",width={"size":10,"offset":1})
-            ], align="center"),
+            dbc.Col(id="transaction-container-open",width=10)
+            ], align="center", justify="center"),
     ])
 ])
 

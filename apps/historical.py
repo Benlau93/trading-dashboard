@@ -298,8 +298,8 @@ layout = html.Div([
             ]),
             dbc.Row([
                 dbc.Col(html.H5(children='Cumulative & Monthly P/L', className="text-center"),
-                                width={"size":6, "offset":3}, className="mt-4")
-                ]),
+                                width=6, className="mt-4")
+                ], justify="center"),
             dbc.Row([
                 dbc.Col([dcc.Graph(id="line")], width=12)
             ],),
@@ -337,19 +337,19 @@ layout = html.Div([
             ]),
             dbc.Row([
                 dbc.Col(html.H5(children='Summary Position', className="text-center"),
-                                width={"size":6, "offset":3}, className="mt-2")
-            ]),
+                                width=6, className="mt-2")
+            ], justify="center"),
             dbc.Row([
                 dbc.Col(id="table-container",children=table_fig,width={"size":10,"offset":1})
             ], align="center"),
             html.Br(),
             dbc.Row([
                 dbc.Col(html.H5(children='Transactions', className="text-center"),
-                                width={"size":6, "offset":3}, className="mt-2")
-            ]),
+                                width=6, className="mt-2")
+            ], justify="center"),
             dbc.Row([
-                dbc.Col(id="transaction-container",width={"size":10,"offset":1})
-            ], align="center"),
+                dbc.Col(id="transaction-container",width={"size":10})
+            ], align="center", justify="center"),
     ])
 ])
 
