@@ -6,15 +6,6 @@ from app import app
 from apps import historical, portfolio, add
 
 # building the navigation bar
-dropdown = dbc.DropdownMenu(
-    children=[
-        dbc.DropdownMenuItem("Home", href="/"),
-    ],
-    nav = True,
-    in_navbar = True,
-    label = "Explore",
-)
-
 navbar = dbc.NavbarSimple(
     children=[
         dbc.NavItem(dbc.NavLink("Dashboard", href="/")),

@@ -74,11 +74,11 @@ def generate_indicator(df):
 def generate_bar(df, value):
     VIEW = "P/L" if value == "Absolute" else "P/L (%)"
     FORMAT = "%{y:$,.2f}" if value == "Absolute" else "%{y:.2%}"
-    pl_by_name = df.sort_values("Date")[["Name","Symbol","P/L (SGD)","P/L (%)"]].rename({"P/L (SGD)":"P/L"}, axis=1)
+    df_ = df.sort_values("Date")[["Name","Symbol","P/L (SGD)","P/L (%)"]].rename({"P/L (SGD)":"P/L"}, axis=1)
 
     bar_fig = go.Figure()
     bar_fig.add_trace(
-        go.Bar(x=pl_by_name["Symbol"],y=pl_by_name[VIEW],texttemplate =FORMAT, textposition="inside",name=VIEW, hovertemplate="%{x}, "+FORMAT)
+        go.Bar(x=df_["Symbol"],y=df_[VIEW],texttemplate =FORMAT, textposition="inside",name=VIEW, hovertemplate="%{x}, "+FORMAT)
     )
 
     bar_fig.update_layout(
@@ -92,11 +92,11 @@ def generate_bar(df, value):
 
 def generate_treemap(df, value):
     VIEW = "P/L" if value == "Absolute" else "P/L (%)"
-    value_by_name = df[["Type","Symbol","Name","Value (SGD)","P/L (SGD)", "P/L (%)"]].rename({"P/L (SGD)":"P/L","Value (SGD)":"Value","Symbol":"Ticker"}, axis=1)
+    df_ = df[["Type","Symbol","Name","Value (SGD)","P/L (SGD)", "P/L (%)"]].rename({"P/L (SGD)":"P/L","Value (SGD)":"Value","Symbol":"Ticker"}, axis=1)
 
-    treemap_fig = px.treemap(value_by_name, path=[px.Constant("Positions"),"Type","Name"], values="Value", color=VIEW ,
+    treemap_fig = px.treemap(df_, path=[px.Constant("Positions"),"Type","Name"], values="Value", color=VIEW ,
                                                     color_continuous_scale="RdBu",
-                                                    range_color = [value_by_name[VIEW].min(), value_by_name[VIEW].max()],
+                                                    range_color = [df_[VIEW].min(), df_[VIEW].max()],
                                                     hover_data = {"Name":False,"Ticker":True,"P/L":":$,.2f","Value":":$,.2f","P/L (%)":":.2%"}, branchvalues="total")
     treemap_fig.update_layout(margin = dict(t=0), template=TEMPLATE)
 

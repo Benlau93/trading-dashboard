@@ -102,17 +102,17 @@ def generate_trade_indicator(df):
 # culmulative p/L over time & P/L per month
 
 def generate_line(df):
-    cul_pl = df.groupby("DATE")[["P/L (SGD)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
-    cul_pl["DATE(SORT)"] = pd.to_datetime(cul_pl["DATE"], format="%b-%y")
-    cul_pl = cul_pl.sort_values(["DATE(SORT)"]).drop("DATE(SORT)", axis=1)
-    cul_pl["Cumulative P/L"] = cul_pl["P/L"].cumsum()
+    df_ = df.groupby("DATE")[["P/L (SGD)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
+    df_["DATE(SORT)"] = pd.to_datetime(df_["DATE"], format="%b-%y")
+    df_ = df_.sort_values(["DATE(SORT)"]).drop("DATE(SORT)", axis=1)
+    df_["Cumulative P/L"] = df_["P/L"].cumsum()
 
     line_fig = make_subplots(specs=[[{"secondary_y": True}]])
     line_fig.add_trace(
-        go.Scatter(x=cul_pl["DATE"], y=cul_pl["Cumulative P/L"], name="Cumulative P/L",mode="lines+markers+text", texttemplate="%{y:$,.0f}", textposition="bottom right")
+        go.Scatter(x=df_["DATE"], y=df_["Cumulative P/L"], name="Cumulative P/L",mode="lines+markers+text", texttemplate="%{y:$,.0f}", textposition="bottom right")
     )
     line_fig.add_trace(
-        go.Scatter(x=cul_pl["DATE"], y=cul_pl["P/L"], name="P/L", mode="lines+markers+text",texttemplate="%{y:$,.0f}",textposition="top left",line=dict(dash="dash")),
+        go.Scatter(x=df_["DATE"], y=df_["P/L"], name="P/L", mode="lines+markers+text",texttemplate="%{y:$,.0f}",textposition="top left",line=dict(dash="dash")),
         secondary_y=True
     )
 
@@ -131,12 +131,12 @@ def generate_line(df):
 # P/L by quotetype
 
 def generate_bar(df):
-    pl_by_type = df.groupby("Type")[["P/L (SGD)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
-    pl_by_type = pl_by_type.sort_values(["P/L"])
+    df_ = df.groupby("Type")[["P/L (SGD)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
+    df_ = df_.sort_values(["P/L"])
 
     bar_fig = go.Figure()
     bar_fig.add_trace(
-        go.Bar(x=pl_by_type["P/L"],y=pl_by_type["Type"], orientation="h", texttemplate="%{x:$,.0f}", textposition="inside", hovertemplate = "%{y}, %{x:$,.0f}", name="P/L")
+        go.Bar(x=df_["P/L"],y=df_["Type"], orientation="h", texttemplate="%{x:$,.0f}", textposition="inside", hovertemplate = "%{y}, %{x:$,.0f}", name="P/L")
     )
     bar_fig.update_layout(
                         xaxis=dict(showgrid=False, showticklabels=False),
@@ -150,16 +150,16 @@ def generate_bar(df):
 def generate_stack_bar(df):
 
     # no. of trade by type
-    trade = df.groupby(["DATE","Action"])[["Symbol"]].count().rename({"Symbol":"No. Trades"}, axis=1).reset_index()
-    trade["DATE(SORT)"] = pd.to_datetime(trade["DATE"], format="%b-%y")
-    trade = trade.sort_values(["DATE(SORT)"]).drop("DATE(SORT)", axis=1)
+    df_ = df.groupby(["DATE","Action"])[["Symbol"]].count().rename({"Symbol":"No. Trades"}, axis=1).reset_index()
+    df_["DATE(SORT)"] = pd.to_datetime(df_["DATE"], format="%b-%y")
+    df_ = df_.sort_values(["DATE(SORT)"]).drop("DATE(SORT)", axis=1)
 
     stack_bar = go.Figure()
     stack_bar.add_trace(
-        go.Bar(x=trade[trade["Action"]=="Buy"]["DATE"], y=trade[trade["Action"]=="Buy"]["No. Trades"], name="No. of Buy Position", text=trade[trade["Action"]=="Buy"]["No. Trades"])
+        go.Bar(x=df_[df_["Action"]=="Buy"]["DATE"], y=df_[df_["Action"]=="Buy"]["No. Trades"], name="No. of Buy Position", text=df_[df_["Action"]=="Buy"]["No. Trades"])
     )
     stack_bar.add_trace(
-        go.Bar(x=trade[trade["Action"]=="Sell"]["DATE"], y=trade[trade["Action"]=="Sell"]["No. Trades"], name="No. of Sell Position", text=trade[trade["Action"]=="Sell"]["No. Trades"])
+        go.Bar(x=df_[df_["Action"]=="Sell"]["DATE"], y=df_[df_["Action"]=="Sell"]["No. Trades"], name="No. of Sell Position", text=df_[df_["Action"]=="Sell"]["No. Trades"])
     )
     stack_bar.update_layout(barmode='stack',
                             yaxis=dict(showgrid=False, showticklabels=False),
@@ -173,22 +173,22 @@ def generate_stack_bar(df):
 
 # P/L by name
 def generate_treemap(df):
-    pl_by_name = df.groupby(["Type","Name"])[["P/L (SGD)","P/L (%)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
+    df_ = df.groupby(["Type","Name"])[["P/L (SGD)","P/L (%)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
 
-    pl_by_name_profit = pl_by_name[pl_by_name["P/L"]>=0].rename({"P/L":"Profit","P/L (%)":"Profit (%)"}, axis=1)
-    pl_by_name_loss = pl_by_name[pl_by_name["P/L"]<0].rename({"P/L":"Loss","P/L (%)":"Loss (%)"}, axis=1)
-    pl_by_name_loss["Loss"] = pl_by_name_loss["Loss"].map(lambda x: abs(x))
-    pl_by_name_loss["Loss (%)"] = pl_by_name_loss["Loss (%)"].map(lambda x: abs(x))
+    df_profit = df_[df_["P/L"]>=0].rename({"P/L":"Profit","P/L (%)":"Profit (%)"}, axis=1)
+    df_loss = df_[df_["P/L"]<0].rename({"P/L":"Loss","P/L (%)":"Loss (%)"}, axis=1)
+    df_loss["Loss"] = df_loss["Loss"].map(lambda x: abs(x))
+    df_loss["Loss (%)"] = df_loss["Loss (%)"].map(lambda x: abs(x))
 
-    treemap_closed_profit = px.treemap(pl_by_name_profit, path=[px.Constant("Asset Types"),"Type","Name"], values="Profit", color="Profit (%)" ,
+    treemap_closed_profit = px.treemap(df_profit, path=[px.Constant("Asset Types"),"Type","Name"], values="Profit", color="Profit (%)" ,
                                                     color_continuous_scale="RdBu",
-                                                    range_color = [pl_by_name_profit["Profit (%)"].min(), pl_by_name_profit["Profit (%)"].max()],
+                                                    range_color = [df_profit["Profit (%)"].min(), df_profit["Profit (%)"].max()],
                                                     hover_data = {"Name":True,"Profit":":$,.0f","Profit (%)":":.0%"},branchvalues="total")
     treemap_closed_profit.update_layout(margin = dict(t=0), template=TEMPLATE)
 
-    treemap_closed_loss = px.treemap(pl_by_name_loss, path=[px.Constant("Asset Types"),"Type","Name"], values="Loss", color="Loss (%)" ,
+    treemap_closed_loss = px.treemap(df_loss, path=[px.Constant("Asset Types"),"Type","Name"], values="Loss", color="Loss (%)" ,
                                                     color_continuous_scale="RdBu_r",
-                                                    range_color = [pl_by_name_loss["Loss (%)"].min(), pl_by_name_loss["Loss (%)"].max()],
+                                                    range_color = [df_loss["Loss (%)"].min(), df_loss["Loss (%)"].max()],
                                                     hover_data = {"Name":True,"Loss":":$,.0f","Loss (%)":":.0%"},branchvalues="total")
     treemap_closed_loss.update_layout(margin = dict(t=0), template=TEMPLATE)
 
