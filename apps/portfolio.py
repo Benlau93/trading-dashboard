@@ -12,12 +12,16 @@ import math
 
 # read in open position
 df = pd.read_excel("Transaction Data.xlsx", sheet_name="Open Position", parse_dates=["Date"])
-df_pl = pd.read_csv("Historical PL.csv", parse_dates=["Date"])
+df["Type"] = df["Type"] + " - " + df["Currency"].str[:-1]
+type_map = df[["Symbol","Type"]].drop_duplicates()
+
+# read in historical p/l
+df_pl = pd.read_csv("Historical PL.csv")
+df_pl["Date"] = pd.to_datetime(df_pl["Date"], format="%d/%m/%Y")
+df_pl = pd.merge(df_pl, type_map, on="Symbol")
 
 # define template used
 TEMPLATE = "plotly_white"
-
-
 
 # main kpi
 def generate_indicator(df):
@@ -100,23 +104,41 @@ def generate_treemap(df, value):
     return treemap_fig
 
 
-def generate_line(df, value):
+def generate_line(df, value, ticker_list):
     VIEW = "P/L" if value == "Absolute" else "P/L (%)"
     FORMAT = "%{y:$,.2f}" if value == "Absolute" else "%{y:.2%}"
     df_ = df.rename({"P/L (SGD)":"P/L"}, axis=1).copy()
-    df_ = df_.groupby("Date").sum().reset_index()
-    df_["P/L (%)"] = df_["P/L"] / df_["Amount (SGD)"]
 
     line_fig = go.Figure()
-    line_fig.add_trace(
-        go.Scatter(x=df_["Date"], y=df_[VIEW], mode="lines+markers+text", texttemplate=FORMAT, textposition="bottom right")
-    )
-    line_fig.update_layout(
-        margin=dict(t=0),
-        xaxis=dict(showgrid=False),
-        yaxis=dict(zerolinecolor="black",title=VIEW, tickformat=FORMAT[4:-3] + "0" + FORMAT[-2]),
-        template=TEMPLATE
-    )
+
+    if ticker_list == None or len(ticker_list) ==0:
+        df_ = df_.groupby("Date").sum().reset_index()
+        df_["P/L (%)"] = df_["P/L"] / df_["Amount (SGD)"]
+        line_fig.add_trace(
+            go.Scatter(x=df_["Date"], y=df_[VIEW], mode="lines+markers+text", texttemplate=FORMAT, textposition="bottom right", textfont=dict(size=10)
+            )
+        )
+        line_fig.update_layout(
+            margin=dict(t=0),
+            xaxis=dict(showgrid=False),
+            yaxis=dict(zerolinecolor="black",title=VIEW, tickformat=FORMAT[4:-3] + "0" + FORMAT[-2]),
+            template=TEMPLATE
+        )
+    else:
+        for t in ticker_list:
+            df_filtered = df_[df_["Symbol"]==t].groupby("Date").sum().reset_index()
+            df_filtered["P/L (%)"] = df_filtered["P/L"] / df_filtered["Amount (SGD)"]
+            
+            line_fig.add_trace(
+                go.Scatter(x=df_filtered["Date"], y=df_filtered[VIEW], mode="lines+markers", hovertemplate = "%{x}, " + FORMAT, name=t
+                )
+            )
+        line_fig.update_layout(
+            margin=dict(t=0),
+            xaxis=dict(showgrid=False),
+            yaxis=dict(zerolinecolor="black",title=VIEW, tickformat=FORMAT[4:-3] + "0" + FORMAT[-2]),
+            template=TEMPLATE
+        )
 
     return line_fig
 
@@ -159,6 +181,9 @@ def generate_table(df):
         'whiteSpace': 'normal'},
         style_table={'overflowX': 'scroll'},
         style_as_list_view=True,
+        page_action="native",
+        page_current= 0,
+        page_size= 10,
     )
 
     return table_fig
@@ -208,8 +233,21 @@ layout = html.Div([
             dbc.Col(dcc.Graph(id="treemap_open"), width={"size":6})
         ]),
         dbc.Row([
+            dbc.Col(html.H5(children='P/L over Time', className="text-center"),
+                            width={"size":4,"offset":4}, className="mt-4")
+        ]),
+        dbc.Row([
             dbc.Col(dcc.Graph(id="line_open"), width={"size":8}),
-            # dbc.Col(dcc.Graph(id="treemap_open"), width={"size":6})
+            dbc.Col(dbc.Card(
+                dbc.CardBody([
+                    html.H4("Select Filters", className="text-center"),
+                    html.Br(),
+                    dcc.Dropdown(id ="type-dropdown", options=[{"label":v, "value":v} for v in df["Type"].unique()], placeholder="Select Asset Class"),
+                    html.Br(),
+                    html.Br(),
+                    dcc.Dropdown(id="ticker-dropdown", placeholder="Select Ticker",multi=True)
+
+                ])), width=4)
         ]),
         dbc.Row([
             dbc.Col(dbc.Card(html.H3(children='Table',
@@ -223,14 +261,33 @@ layout = html.Div([
 ])
 
 @app.callback(
+    Output(component_id="ticker-dropdown", component_property="options"),
+    Input(component_id="type-dropdown", component_property="value")
+)
+def update_ticker_dropdown(value):
+    if value == None:
+        options = [{"label":v, "value":v} for v in df["Symbol"].unique()]
+    else:
+        options = [{"label":v, "value":v} for v in df[df["Type"]==value]["Symbol"].unique()]
+
+    return options
+
+@app.callback(
     Output(component_id="bar_open",component_property="figure"),
     Output(component_id="treemap_open",component_property="figure"),
     Output(component_id="line_open",component_property="figure"),
-    Input(component_id="radios", component_property="value")
+    Input(component_id="radios", component_property="value"),
+    Input(component_id="type-dropdown", component_property="value"),
+    Input(component_id="ticker-dropdown",component_property="value")
 )
-def update_graph(value):
+def update_graph(value, type, ticker_list):
     bar_fig = generate_bar(df, value)
     treemap_fig = generate_treemap(df, value)
-    line_fig = generate_line(df_pl, value)
+
+    if type == None:
+        line_fig = generate_line(df_pl, value,ticker_list)
+    else:
+        line_fig = generate_line(df_pl, value, None)
+
 
     return bar_fig, treemap_fig, line_fig

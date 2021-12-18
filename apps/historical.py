@@ -227,6 +227,9 @@ def generate_table(df):
         'whiteSpace': 'normal'},
         style_table={'overflowX': 'scroll'},
         style_as_list_view=True,
+        page_action="native",
+        page_current= 0,
+        page_size= 10,
     )
 
     return table_fig
