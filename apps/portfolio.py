@@ -20,6 +20,10 @@ df_pl = pd.read_csv("Historical PL.csv")
 df_pl["Date"] = pd.to_datetime(df_pl["Date"], format="%d/%m/%Y")
 df_pl = pd.merge(df_pl, type_map, on="Symbol")
 
+# read in transactional data
+data = pd.read_excel("Transaction Data.xlsx", sheet_name="Data", parse_dates=["Date"])
+data["DATE"] = data["Date"].dt.strftime("%b-%y")
+
 # define template used
 TEMPLATE = "plotly_white"
 
@@ -152,7 +156,8 @@ def generate_table(df):
                     "P/L (%)":"Unrealised P/L (%)",
                     "Weightage":"% of Portfolio",
                     "Shares":"Qty"}, axis=1)
-    df_ = df_[["Name","Date","Qty","Price","Current Price","Unrealised P/L","Unrealised P/L (%)","Value","Holdings (days)","% of Portfolio"]].sort_values(["Unrealised P/L"])
+    df_ = df_.sort_values(["Unrealised P/L"], ascending=False)
+    df_["id"] = df_["Symbol"] +"|" + df_["Date"].dt.date.astype(str)
     
     # formatting
     df_["Date"] = df_["Date"].dt.date
@@ -160,7 +165,7 @@ def generate_table(df):
     percentage = dash_table.FormatTemplate.percentage(2)
 
     table_fig = dash_table.DataTable(
-        id="table",
+        id="table-open",
         columns = [
             dict(id="Name", name="Name"),
             dict(id="Date", name="Date"),
@@ -175,6 +180,7 @@ def generate_table(df):
         ],
         data=df_.to_dict('records'),
         sort_action="native",
+        row_selectable='single',
         style_cell={
         'height': 'auto',
         'minWidth': '180px', 'width': '180px', 'maxWidth': '180px',
@@ -183,10 +189,54 @@ def generate_table(df):
         style_as_list_view=True,
         page_action="native",
         page_current= 0,
-        page_size= 10,
+        page_size= 5,
     )
 
     return table_fig
+def generate_transaction(df, id):
+
+    df_ = df.rename({"Amount (SGD)":"Value"},axis=1).copy()
+    # get transactional data
+    if id == None or len(id) == 0:
+        df_ = df_.sort_values("Date").copy()
+    else:
+        id = id[0].split("|")
+        ticker, start = id[0], id[1]
+        start = pd.to_datetime(start,format="%Y-%m-%d")
+        df_ = df_[(df_["Symbol"]==ticker) & (df_["Date"] >= start)].sort_values("Date").copy()
+
+    # formatting
+    df_["Date"] = df_["Date"].dt.date
+    money = dash_table.FormatTemplate.money(2)
+    percentage = dash_table.FormatTemplate.percentage(2)
+    
+    transaction_fig = dash_table.DataTable(
+        id="transaction-open",
+        columns = [
+            dict(id="Date", name="Date"),
+            dict(id="Name", name="Name"),
+            dict(id="Symbol", name="Symbol"),
+            dict(id="Action", name="Action"),
+            dict(id="Price", name="Price",type="numeric",format=money),
+            dict(id="Shares", name="Shares",type="numeric"),
+            dict(id="Comm", name="Comm",type="numeric",format=money),
+            dict(id="Exchange Rate", name="Exchange Rate",type="numeric"),
+            dict(id="Value", name="Value",type="numeric",format=money),
+        ],
+        data=df_.to_dict('records'),
+        sort_action="native",
+        style_cell={
+        'height': 'auto',
+        'minWidth': '180px', 'width': '180px', 'maxWidth': '180px',
+        'whiteSpace': 'normal'},
+        style_table={'overflowX': 'scroll'},
+        style_as_list_view=True,
+        page_action="native",
+        page_current= 0,
+        page_size= 5,
+    )
+
+    return transaction_fig
 
 indicator_fig = generate_indicator(df)
 table_fig = generate_table(df)
@@ -255,8 +305,20 @@ layout = html.Div([
                 , className="mt-0 mb-4")
             ]),
         dbc.Row([
+            dbc.Col(html.H5(children='Open Position(s)', className="text-center"),
+                                width={"size":6, "offset":3}, className="mt-2")
+            ]),
+        dbc.Row([
             dbc.Col(table_fig, width={"size":10,"offset":1})
-        ], align="center")
+        ], align="center"),
+        html.Br(),
+        dbc.Row([
+            dbc.Col(html.H5(children='Transactions', className="text-center"),
+                                width={"size":6, "offset":3}, className="mt-2")
+            ]),
+        dbc.Row([
+            dbc.Col(id="transaction-container-open",width={"size":10,"offset":1})
+            ], align="center"),
     ])
 ])
 
@@ -291,3 +353,12 @@ def update_graph(value, type, ticker_list):
 
 
     return bar_fig, treemap_fig, line_fig
+
+@app.callback(
+    Output(component_id="transaction-container-open", component_property="children"),
+    Input(component_id="table-open", component_property="selected_row_ids")
+)
+def update_table(id):
+    transaction_fig = generate_transaction(data,id)
+
+    return transaction_fig

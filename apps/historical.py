@@ -1,5 +1,6 @@
 from dash import html
 from dash import dcc
+from dash.html.Dfn import Dfn
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
@@ -200,10 +201,10 @@ def generate_table(df):
     df_ = df_.rename({"Type":"Asset Type",
                     "Price_Open":"Price (Open)",
                     "Price_Close":"Price (Close)",
-                    "Amount (SGD)_Open":"Value (Open)",
                     "P/L (SGD)":"P/L"}, axis=1)
-    df_ = df_[["Name","Asset Type","Price (Open)","Price (Close)","Value (Open)","P/L","P/L (%)","Holding (days)"]].sort_values(["P/L"], ascending=False)
-    
+    df_ = df_.sort_values(["P/L"], ascending=False)
+    df_["id"] = df_["Symbol"] +"|" + df_["Date_Open"].dt.date.astype(str) + "|" + df_["Date_Close"].dt.date.astype(str)
+
     # formatting
     money = dash_table.FormatTemplate.money(2)
     percentage = dash_table.FormatTemplate.percentage(2)
@@ -216,8 +217,52 @@ def generate_table(df):
             dict(id="Price (Close)", name="Price (Close)",type="numeric",format=money),
             dict(id="P/L", name="P/L",type="numeric",format=money),
             dict(id="P/L (%)", name="P/L (%)",type="numeric",format=percentage),
-            dict(id="Value (Open)", name="Value (Open)",type="numeric",format=money),
             dict(id="Holding (days)", name="Holding (days)", type="numeric")
+        ],
+        data=df_.to_dict('records'),
+        sort_action="native",
+        row_selectable='single',
+        style_cell={
+        'height': 'auto',
+        'minWidth': '180px', 'width': '180px', 'maxWidth': '180px',
+        'whiteSpace': 'normal'},
+        style_table={'overflowX': 'scroll'},
+        style_as_list_view=True,
+        page_action="native",
+        page_current= 0,
+        page_size= 5,
+    )
+    return table_fig
+
+def generate_transaction(df, id):
+
+    df_ = df.rename({"Amount (SGD)":"Value"},axis=1).copy()
+    # get transactional data
+    if id == None or len(id) == 0:
+        df_ = df_.sort_values("Date").copy()
+    else:
+        id = id[0].split("|")
+        ticker, start, end = id[0], id[1], id[2]
+        start, end = pd.to_datetime(start,format="%Y-%m-%d"), pd.to_datetime(end,format="%Y-%m-%d")
+        df_ = df_[(df_["Symbol"]==ticker) & (df_["Date"] >= start) & (df_["Date"]<=end)].sort_values("Date").copy()
+
+    # formatting
+    df_["Date"] = df_["Date"].dt.date
+    money = dash_table.FormatTemplate.money(2)
+    percentage = dash_table.FormatTemplate.percentage(2)
+    
+    transaction_fig = dash_table.DataTable(
+        id="transaction",
+        columns = [
+            dict(id="Date", name="Date"),
+            dict(id="Name", name="Name"),
+            dict(id="Symbol", name="Symbol"),
+            dict(id="Action", name="Action"),
+            dict(id="Price", name="Price",type="numeric",format=money),
+            dict(id="Shares", name="Shares",type="numeric"),
+            dict(id="Comm", name="Comm",type="numeric",format=money),
+            dict(id="Exchange Rate", name="Exchange Rate",type="numeric"),
+            dict(id="Value", name="Value",type="numeric",format=money),
         ],
         data=df_.to_dict('records'),
         sort_action="native",
@@ -229,10 +274,12 @@ def generate_table(df):
         style_as_list_view=True,
         page_action="native",
         page_current= 0,
-        page_size= 10,
+        page_size= 5,
     )
 
-    return table_fig
+    return transaction_fig
+
+table_fig = generate_table(closed_position)
 
 # define layout
 layout = html.Div([
@@ -284,13 +331,25 @@ layout = html.Div([
                 dbc.Col([dcc.Graph(id="treemap-closed-loss")], width=6)
             ]),
             dbc.Row([
-                dbc.Col(dbc.Card(html.H3(children='Table',
+                dbc.Col(dbc.Card(html.H3(children='Tables',
                                  className="text-center text-light bg-dark"), body=True, color="dark")
                 , className="mt-0 mb-4")
             ]),
-        dbc.Row([
-            dbc.Col(id="table-container",width={"size":10,"offset":1})
-        ], align="center")
+            dbc.Row([
+                dbc.Col(html.H5(children='Summary Position', className="text-center"),
+                                width={"size":6, "offset":3}, className="mt-2")
+            ]),
+            dbc.Row([
+                dbc.Col(id="table-container",children=table_fig,width={"size":10,"offset":1})
+            ], align="center"),
+            html.Br(),
+            dbc.Row([
+                dbc.Col(html.H5(children='Transactions', className="text-center"),
+                                width={"size":6, "offset":3}, className="mt-2")
+            ]),
+            dbc.Row([
+                dbc.Col(id="transaction-container",width={"size":10,"offset":1})
+            ], align="center"),
     ])
 ])
 
@@ -328,12 +387,10 @@ def update_type_dropdown(date):
     Output(component_id="stacked_bar", component_property="figure"),
     Output(component_id="treemap-closed-profit", component_property="figure"),
     Output(component_id="treemap-closed-loss", component_property="figure"),
-    Output(component_id="table-container", component_property="children"),
     Input(component_id="date-dropdown", component_property="value"),
     Input(component_id="type-dropdown", component_property="value")
 )
 def update_graph(date,type):
-
     if date == None and type == None:
         data_filtered = data.copy()
         closed_position_filtered = closed_position.copy()
@@ -359,6 +416,15 @@ def update_graph(date,type):
     bar_fig = generate_bar(closed_position_filtered)
     stack_bar = generate_stack_bar(data_filtered)
     treemap_closed_profit, treemap_closed_loss = generate_treemap(closed_position_filtered)
-    table_fig = generate_table(closed_position_filtered)
 
-    return indicator_fig, trade_indicator, line_fig, bar_fig, stack_bar,treemap_closed_profit,treemap_closed_loss,table_fig
+    return indicator_fig, trade_indicator, line_fig, bar_fig, stack_bar,treemap_closed_profit,treemap_closed_loss
+
+
+@app.callback(
+    Output(component_id="transaction-container", component_property="children"),
+    Input(component_id="table", component_property="selected_row_ids")
+)
+def update_table(id):
+    transaction_fig = generate_transaction(data,id)
+
+    return transaction_fig
