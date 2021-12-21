@@ -5,6 +5,7 @@ import pandas as pd
 from dash.dependencies import Input, Output, State
 from app import app
 from datetime import date
+import requests
 
 
 date_input = html.Div([
@@ -16,7 +17,7 @@ date_input = html.Div([
             max_date_allowed=date.today(),
             initial_visible_month=date.today(),
             date=date.today(),
-            display_format='DD-MMM-YYYY'
+            display_format='DD-MM-YYYY'
     ), width=2)
     ], align="center")
 ], className="mb-3")
@@ -93,6 +94,7 @@ form = dbc.Form([
 ], id="form")
 
 layout = html.Div([
+    html.Div(id="TEST"),
     dbc.Container([
         dbc.Row([
             dbc.Col(
@@ -102,9 +104,6 @@ layout = html.Div([
                 form
             ]))
             ,width={"size":8,"offset":2})
-        ]),
-        dbc.Row([
-            dbc.Col(html.P(id="TEST"))
         ])
 
     ])
@@ -112,6 +111,7 @@ layout = html.Div([
 
 @app.callback(
     Output(component_id="TEST", component_property="children"),
+    Output(component_id="TEST", component_property="className"),
     Input(component_id="form", component_property="n_submit"),
     State(component_id="date-picker", component_property="date"),
     State(component_id="sym-input", component_property="value"),
@@ -123,4 +123,17 @@ layout = html.Div([
     prevent_initial_call=True,
 )
 def submit_form(n_submit, date, sym, price, qty, fees, er, action):
-    print(n_submit, date, sym, price, qty, fees, er, action)
+    if n_submit != None:
+        data = {"date":date,
+                "symbol":sym,
+                "price":price,
+                "quantity":qty,
+                "fees":fees,
+                "exchange_rate":er,
+                "action":action}
+
+        response = requests.post("http://127.0.0.1:8000/api/transaction",data=data)
+        if response.status_code == 200:
+            return dbc.Alert("Transaction Added", color="Primary"), "alert alert-success"
+        else:
+            return dbc.Alert("Failed to add transaction", color="danger"), "alert alert-danger"

@@ -10,6 +10,13 @@ from dash.dependencies import Input, Output
 from dash import dash_table
 from app import app
 
+# test api
+# import requests
+# response = requests.get("http://127.0.0.1:8000/api/transaction")
+# test_df = pd.DataFrame.from_dict(response.json())
+# print(test_df.head())
+
+# read excel
 df = pd.read_excel("Transaction Data.xlsx", sheet_name=None)
 
 # transactional data
