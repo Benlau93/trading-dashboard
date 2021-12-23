@@ -33,3 +33,13 @@ class OpenSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return OpenPosition.objects.create(**validated_data)
+
+    def update(self, instance, validated_data):
+        instance.total_quantity = validated_data.get('total_quantity', instance.total_quantity)
+        instance.avg_price = validated_data.get('avg_price', instance.avg_price)
+        instance.total_fees = validated_data.get('total_fees', instance.total_fees)
+        instance.avg_exchange_rate = validated_data.get('avg_exchange_rate', instance.avg_exchange_rate)
+        instance.total_value = validated_data.get('total_value', instance.total_value)
+        instance.total_value_sgd = validated_data.get('total_value_sgd', instance.total_value_sgd)
+        instance.save()
+        return instance

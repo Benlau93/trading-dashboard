@@ -68,9 +68,32 @@ class TransactionViews(APIView):
             open_position = OpenPosition.objects.filter(symbol=data["symbol"])
 
             if len(open_position)==1:
+                open_position = open_position[0]
                 # there is open position, update to open position
-                print("THERE IS OPEN")
-                pass
+
+                # check if add on or close position
+                if data["action"] == "Buy":
+                    open_serialized = self.open_serializer(open_position)
+                    addon_data = open_serialized.data
+                    # add on
+                    total_quantity = addon_data["total_quantity"] + data["quantity"]
+                    avg_price = ((addon_data["total_quantity"] * addon_data["avg_price"]) + (data["price"] * data["quantity"])) / total_quantity
+                    avg_exchange_rate = ((addon_data["total_quantity"] * addon_data["avg_exchange_rate"]) + (data["exchange_rate"] * data["quantity"])) / total_quantity
+                    addon_data.update({"total_quantity":total_quantity,
+                                "avg_price":avg_price,
+                                "total_fees":addon_data["total_fees"] + data["fees"],
+                                "avg_exchange_rate":avg_exchange_rate,
+                                "total_value":addon_data["total_value"] + data["value"],
+                                "total_value_sgd":addon_data["total_value_sgd"] + data["value_sgd"]})
+                    open_serialized = self.open_serializer(open_position,data=addon_data)
+                    if open_serialized.is_valid():
+                        open_serialized.save()
+                        verbose = {"verbose":f"Updated Existing Position, increased {data['symbol']} to {addon_data['total_quantity']} with average price of ${round(addon_data['avg_price'],2)}."}
+                    else:
+                        return Response(status=status.HTTP_400_BAD_REQUEST)
+                else:
+                    # close
+                    pass
 
             else:
                 # there is no open position, create new open position
@@ -92,11 +115,11 @@ class TransactionViews(APIView):
                 }
                 open_serialized = self.open_serializer(data=open_data)
                 if open_serialized.is_valid():
-                    # open_serialized.save()
-                    print("CREATED NEW OPEN POSITION")
+                    open_serialized.save()
+                    verbose = {"verbose":f"Opened New Position, {data['quantity']} of {data['symbol']} at ${data['price']}."}
                 else:
                     return Response(status=status.HTTP_400_BAD_REQUEST)
 
-            return Response(status = status.HTTP_200_OK)
+            return Response(verbose, status = status.HTTP_200_OK)
         else:
             return Response(status=status.HTTP_400_BAD_REQUEST)
