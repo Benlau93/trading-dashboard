@@ -112,6 +112,13 @@ layout = html.Div([
 @app.callback(
     Output(component_id="TEST", component_property="children"),
     Output(component_id="TEST", component_property="className"),
+    Output(component_id="date-picker", component_property="date"),
+    Output(component_id="sym-input", component_property="value"),
+    Output(component_id="price-input", component_property="value"),
+    Output(component_id="qty-input", component_property="value"),
+    Output(component_id="fees-input", component_property="value"),
+    Output(component_id="er-input", component_property="value"),
+    Output(component_id="action-input", component_property="value"),
     Input(component_id="form", component_property="n_submit"),
     State(component_id="date-picker", component_property="date"),
     State(component_id="sym-input", component_property="value"),
@@ -122,9 +129,9 @@ layout = html.Div([
     State(component_id="action-input", component_property="value"),
     prevent_initial_call=True,
 )
-def submit_form(n_submit, date, sym, price, qty, fees, er, action):
+def submit_form(n_submit, date_, sym, price, qty, fees, er, action):
     if n_submit != None:
-        data = {"date":date,
+        data = {"date":date_,
                 "symbol":sym,
                 "price":price,
                 "quantity":qty,
@@ -134,6 +141,6 @@ def submit_form(n_submit, date, sym, price, qty, fees, er, action):
 
         response = requests.post("http://127.0.0.1:8000/api/transaction",data=data)
         if response.status_code == 200:
-            return dbc.Alert("Transaction Added", color="Primary"), "alert alert-success"
+            return dbc.Alert(response.json()["verbose"], color="Primary"), "alert alert-success", date.today(), None, None, None, 0,1,"Buy"
         else:
-            return dbc.Alert("Failed to add transaction", color="danger"), "alert alert-danger"
+            return dbc.Alert("Failed to add transaction", color="danger"), "alert alert-danger", date.today(), None, None, None, 0,1,"Buy"

@@ -22,6 +22,7 @@ df = pd.read_excel("Transaction Data.xlsx", sheet_name=None)
 # transactional data
 data = df["Data"]
 data["DATE"] = data["Date"].dt.strftime("%b-%y")
+data["Type"] = data["Type"] + " - " + data["Currency"].str[:-1]
 
 # closed position
 closed_position = df["Closed Position"]
@@ -220,6 +221,7 @@ def generate_table(df):
         id="table",
         columns = [
             dict(id="Name", name="Name"),
+            dict(id="Asset Type", name="Asset Type"),
             dict(id="Price (Open)", name="Price (Open)",type="numeric",format=money),
             dict(id="Price (Close)", name="Price (Close)",type="numeric",format=money),
             dict(id="P/L", name="P/L",type="numeric",format=money),
