@@ -143,4 +143,4 @@ def submit_form(n_submit, date_, sym, price, qty, fees, er, action):
         if response.status_code == 200:
             return dbc.Alert(response.json()["verbose"], color="Primary"), "alert alert-success", date.today(), None, None, None, 0,1,"Buy"
         else:
-            return dbc.Alert("Failed to add transaction", color="danger"), "alert alert-danger", date.today(), None, None, None, 0,1,"Buy"
+            return dbc.Alert(response.json().get("verbose","Failed to add transaction"), color="danger"), "alert alert-danger", date.today(), None, None, None, 0,1,"Buy"

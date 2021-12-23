@@ -2,7 +2,7 @@ from rest_framework import serializers, status
 from rest_framework.views import APIView
 from datetime import date
 from datetime import datetime
-from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer
+from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer
 from rest_framework.response import Response
 from .models import TransactionModel, TickerInfo, OpenPosition
 import yfinance as yf
@@ -12,6 +12,7 @@ class TransactionViews(APIView):
     transaction_serializer = TransactionSerializer
     ticker_serializer = TickerSerializer
     open_serializer = OpenSerializer
+    close_serializer = ClosedSerializer
 
     def get(self, request, format=None):
         data = TransactionModel.objects.all()
@@ -20,6 +21,7 @@ class TransactionViews(APIView):
 
     def post(self, request, format=None):
         data = request.data.dict()
+        verbose = {}
 
         # formating
         data["price"], data["quantity"], data["fees"], data["exchange_rate"] = float(data["price"]), float(data["quantity"]), float(data["fees"]), float(data["exchange_rate"])
@@ -69,31 +71,69 @@ class TransactionViews(APIView):
 
             if len(open_position)==1:
                 open_position = open_position[0]
+                open_serialized = self.open_serializer(open_position)
+                update_data = open_serialized.data
                 # there is open position, update to open position
 
                 # check if add on or close position
                 if data["action"] == "Buy":
-                    open_serialized = self.open_serializer(open_position)
-                    addon_data = open_serialized.data
-                    # add on
-                    total_quantity = addon_data["total_quantity"] + data["quantity"]
-                    avg_price = ((addon_data["total_quantity"] * addon_data["avg_price"]) + (data["price"] * data["quantity"])) / total_quantity
-                    avg_exchange_rate = ((addon_data["total_quantity"] * addon_data["avg_exchange_rate"]) + (data["exchange_rate"] * data["quantity"])) / total_quantity
-                    addon_data.update({"total_quantity":total_quantity,
+                    
+                    # update
+                    total_quantity = update_data["total_quantity"] + data["quantity"]
+                    avg_price = ((update_data["total_quantity"] * update_data["avg_price"]) + (data["price"] * data["quantity"])) / total_quantity
+                    avg_exchange_rate = ((update_data["total_quantity"] * update_data["avg_exchange_rate"]) + (data["exchange_rate"] * data["quantity"])) / total_quantity
+                    update_data.update({"total_quantity":total_quantity,
                                 "avg_price":avg_price,
-                                "total_fees":addon_data["total_fees"] + data["fees"],
+                                "total_fees":update_data["total_fees"] + data["fees"],
                                 "avg_exchange_rate":avg_exchange_rate,
-                                "total_value":addon_data["total_value"] + data["value"],
-                                "total_value_sgd":addon_data["total_value_sgd"] + data["value_sgd"]})
-                    open_serialized = self.open_serializer(open_position,data=addon_data)
+                                "total_value":update_data["total_value"] + data["value"],
+                                "total_value_sgd":update_data["total_value_sgd"] + data["value_sgd"]})
+                    open_serialized = self.open_serializer(open_position,data=update_data)
                     if open_serialized.is_valid():
                         open_serialized.save()
-                        verbose = {"verbose":f"Updated Existing Position, increased {data['symbol']} to {addon_data['total_quantity']} with average price of ${round(addon_data['avg_price'],2)}."}
+                        verbose = {"verbose":f"Updated Existing Position, increased {update_data['symbol']} to {update_data['total_quantity']} with average price of ${round(update_data['avg_price'],2)}."}
                     else:
-                        return Response(status=status.HTTP_400_BAD_REQUEST)
+                        return Response(verbose,status=status.HTTP_400_BAD_REQUEST)
                 else:
-                    # close
-                    pass
+                    # close position
+
+                    # check if close all
+                    if update_data["total_quantity"] < data["quantity"]:
+                        verbose = {"verbose":"Invalid transaction. Please ensure you have sufficient quantity"}
+                        return Response(verbose,status=status.HTTP_400_BAD_REQUEST)
+                    elif update_data["total_quantity"] == data["quantity"]:
+                        # add to closed position
+                        id = open_position.id + "|" + date_str
+                        holding = (date_ - open_position.date_open).days
+                        pl = data["value"] - open_position.total_value
+                        pl_sgd = data["value_sgd"] - open_position.total_value_sgd
+                        pl_per = pl_sgd / open_position.total_value_sgd
+                        closed_data = {"id":id,
+                                        "symbol":data["symbol"],
+                                        "date_open":open_position.date_open,
+                                        "date_close":date_,
+                                        "holding":holding,
+                                        "pl":pl,
+                                        "pl_sgd":pl_sgd,
+                                        "pl_per":pl_per}
+
+                        closed_serialized = self.close_serializer(data=closed_data)
+                        if closed_serialized.is_valid():
+                            # add closed position
+                            closed_serialized.save()
+                            
+                            # delete open position
+                            open_position.delete()
+                            
+                            verbose = {"verbose":f"Closed a Position, closed {data['symbol']} with P/L of ${round(pl_sgd,2)}"}
+                        else:
+                            return Response(verbose,status=status.HTTP_400_BAD_REQUEST)
+                        
+                    else:
+                        # close some
+                        pass
+
+                    
 
             else:
                 # there is no open position, create new open position
@@ -118,8 +158,9 @@ class TransactionViews(APIView):
                     open_serialized.save()
                     verbose = {"verbose":f"Opened New Position, {data['quantity']} of {data['symbol']} at ${data['price']}."}
                 else:
-                    return Response(status=status.HTTP_400_BAD_REQUEST)
+                    return Response(verbose,status=status.HTTP_400_BAD_REQUEST)
 
             return Response(verbose, status = status.HTTP_200_OK)
         else:
-            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+            return Response(verbose, status=status.HTTP_400_BAD_REQUEST)
