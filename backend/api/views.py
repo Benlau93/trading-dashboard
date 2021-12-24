@@ -78,7 +78,7 @@ class TransactionViews(APIView):
         # check if post data is valid
         if transaction_serialised.is_valid():
             print("CREATED NEW TRANSACTION")
-            # transaction_serialised.save()
+            transaction_serialised.save()
             # check if ticker in ticker info
             query = TickerInfo.objects.filter(symbol=data["symbol"])
 
@@ -95,7 +95,7 @@ class TransactionViews(APIView):
                 }
                 ticker_serialized = self.ticker_serializer(data=ticker_data)
                 if ticker_serialized.is_valid():
-                    # ticker_serialized.save()
+                    ticker_serialized.save()
                     print("CREATED NEW TICKER INFO")
                 else:
                     return Response(status=status.HTTP_400_BAD_REQUEST)
@@ -243,3 +243,10 @@ class TransactionViews(APIView):
         else:
 
             return Response(verbose, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RefreshViews(APIView):
+
+    def get(self, request, format=None):
+        print("HERE")
+        return Response(status=status.HTTP_200_OK)

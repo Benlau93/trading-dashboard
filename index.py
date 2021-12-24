@@ -31,6 +31,8 @@ app.layout = html.Div([
 def display_page(pathname):
     if pathname == '/portfolio':
         return portfolio.layout
+    elif pathname == "/portfolio/refresh":
+        return portfolio.layout
     elif pathname == "/portfolio/add":
         return add.layout
     return historical.layout

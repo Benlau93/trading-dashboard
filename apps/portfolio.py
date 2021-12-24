@@ -281,10 +281,13 @@ table_fig = generate_table(df)
 
 
 layout = html.Div([
+    dcc.Location(id='refresh-url', refresh=True),
+    html.Div(id="refresh-alert",style={"font-size":"large", "font-family": "Arial, Helvetica, sans-serif","text-align":"center"}),
     dbc.Container([
         dbc.Row([
-            dbc.Col(dbc.Button("Add Transaction",color="success",href="/portfolio/add",style=dict(margin=10)),width={"size":3,"offset":9}, align="start")
-        ]),
+            dbc.Col(dbc.Button("Refresh Ticker Price",id="refresh-button",color="warning",style={"margin-top":10,"margin-right":0}),width=2),
+            dbc.Col(dbc.Button("Add Transaction",color="success",href="/portfolio/add",style={"margin-top":10, "margin-left":0}),width=2)
+        ], align="start", justify="end"),
         dbc.Row([
             dbc.Col(dcc.Graph(id="main-indicator",figure=indicator_fig), width={"size":8,"offset":2}),
         ],align="center"),
@@ -400,3 +403,18 @@ def update_table(id):
     transaction_fig = generate_transaction(data,id)
 
     return transaction_fig
+
+@app.callback(
+    Output(component_id="refresh-alert", component_property="children"),
+    Output(component_id="refresh-alert", component_property="className"),
+    Output("refresh-url", "href"),
+    Input(component_id="refresh-button", component_property="n_clicks"),
+    prevent_initial_call=True,
+)
+def refresh_data(n_clicks):
+    if n_clicks >= 1:
+        response = requests.get("http://127.0.0.1:8000/api/refresh")
+        if response.status_code == 200:
+            return dbc.Alert("Price successfully refreshed", color="Primary"), "alert alert-success", "http://127.0.0.1:8050/portfolio/refresh"
+        else:
+            return dbc.Alert("Price failed to refresh, please try again later", color="danger"), "alert alert-danger", "http://127.0.0.1:8050/portfolio"
