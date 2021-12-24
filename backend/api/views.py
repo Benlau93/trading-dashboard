@@ -2,11 +2,45 @@ from rest_framework import serializers, status
 from rest_framework.views import APIView
 from datetime import date
 from datetime import datetime
-from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer
+from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer, HistoricalSerializer
 from rest_framework.response import Response
-from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition
+from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition, HistoricalPL
 import yfinance as yf
 import numpy as np
+
+class TickerViews(APIView):
+    ticker_serializer = TickerSerializer
+
+    def get(self, request, format=None):
+        data = TickerInfo.objects.all()
+        serializer = self.ticker_serializer(data, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class ClosedViews(APIView):
+    close_serializer = ClosedSerializer
+
+    def get(self, request, format=None):
+        data = ClosedPosition.objects.all()
+        serializer = self.close_serializer(data, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class OpenViews(APIView):
+    open_serializer = OpenSerializer
+
+    def get(self, request, format=None):
+        data = OpenPosition.objects.all()
+        serializer = self.open_serializer(data, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class HistoricalViews(APIView):
+    hist_serializer = HistoricalSerializer
+
+    def get(self, request, format=None):
+        data = HistoricalPL.objects.all()
+        serializer = self.hist_serializer(data, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class TransactionViews(APIView):
     transaction_serializer = TransactionSerializer

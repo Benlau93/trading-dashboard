@@ -8,21 +8,56 @@ from plotly.subplots import make_subplots
 from dash.dependencies import Input, Output
 from dash import dash_table
 from app import app
-import math
+import requests
 
-# read in open position
-df = pd.read_excel("Transaction Data.xlsx", sheet_name="Open Position", parse_dates=["Date"])
-df["Type"] = df["Type"] + " - " + df["Currency"].str[:-1]
-type_map = df[["Symbol","Type"]].drop_duplicates()
+
+# ticker information
+tickerinfo = requests.get("http://127.0.0.1:8000/api/ticker")
+tickerinfo = pd.DataFrame.from_dict(tickerinfo.json())
+
+
+# transactional data
+data = requests.get("http://127.0.0.1:8000/api/transaction")
+data = pd.DataFrame.from_dict(data.json())
+
+# open position
+df = requests.get("http://127.0.0.1:8000/api/open")
+df = pd.DataFrame.from_dict(df.json())
 
 # read in historical p/l
 df_pl = pd.read_csv("Historical PL.csv")
+
+# merge to get tickerinfo
+data = pd.merge(data, tickerinfo, on="symbol")
+df = pd.merge(df, tickerinfo, on="symbol")
+
+# formatting
+tickerinfo.columns = tickerinfo.columns.str.capitalize()
+tickerinfo["Type"] = tickerinfo["Type"] + " - " + tickerinfo["Currency"].str[:-1]
+type_map = tickerinfo[["Symbol","Type"]].drop_duplicates()
+
+data.columns = data.columns.str.capitalize()
+data["Date"] = pd.to_datetime(data["Date"], format="%Y-%m-%d")
+data["DATE"] = data["Date"].dt.strftime("%b-%y")
+
+
+df.columns = df.columns.str.capitalize()
+df["Date"] = pd.to_datetime(df["Date_open"], format="%Y-%m-%d")
+df = df.rename({
+    "Id":"id",
+    "Current_value_sgd":"Value (SGD)",
+    "Unrealised_pl_sgd":"Unrealised P/L (SGD)",
+    "Total_value_sgd": "Amount (SGD)",
+    "Unrealised_pl_per":"Unrealised P/L (%)",
+    "Total_quantity":"Total Quantity",
+    "Date_open":"Date_Open"
+}, axis=1)
+
 df_pl["Date"] = pd.to_datetime(df_pl["Date"], format="%d/%m/%Y")
 df_pl = pd.merge(df_pl, type_map, on="Symbol")
-
-# read in transactional data
-data = pd.read_excel("Transaction Data.xlsx", sheet_name="Data", parse_dates=["Date"])
-data["DATE"] = data["Date"].dt.strftime("%b-%y")
+df_pl = df_pl.rename({
+    "P/L (SGD)":"Unrealised P/L"
+}, axis=1)
 
 # define template used
 TEMPLATE = "plotly_white"
@@ -32,8 +67,8 @@ def generate_indicator(df):
     df_ = df.copy()
     
     current_value = df_["Value (SGD)"].sum()
-    unrealised_pl = df_["P/L (SGD)"].sum()
-    unrealised_pl_per = df_["P/L (SGD)"].sum() / df_["Amount (SGD)"].sum()
+    unrealised_pl = df_["Unrealised P/L (SGD)"].sum()
+    unrealised_pl_per = df_["Unrealised P/L (SGD)"].sum() / df_["Amount (SGD)"].sum()
     total_position = df_["Name"].nunique()
 
     indicator_fig = go.Figure()
@@ -76,9 +111,9 @@ def generate_indicator(df):
 
 
 def generate_bar(df, value):
-    VIEW = "P/L" if value == "Absolute" else "P/L (%)"
+    VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
     FORMAT = "%{y:$,.2f}" if value == "Absolute" else "%{y:.2%}"
-    df_ = df.sort_values("Date")[["Name","Symbol","P/L (SGD)","P/L (%)"]].rename({"P/L (SGD)":"P/L"}, axis=1)
+    df_ = df.sort_values("Date")[["Name","Symbol","Unrealised P/L (SGD)","Unrealised P/L (%)"]].rename({"Unrealised P/L (SGD)":"Unrealised P/L"}, axis=1)
 
     bar_fig = go.Figure()
     bar_fig.add_trace(
@@ -95,13 +130,13 @@ def generate_bar(df, value):
     return bar_fig
 
 def generate_treemap(df, value):
-    VIEW = "P/L" if value == "Absolute" else "P/L (%)"
-    df_ = df[["Type","Symbol","Name","Value (SGD)","P/L (SGD)", "P/L (%)"]].rename({"P/L (SGD)":"P/L","Value (SGD)":"Value","Symbol":"Ticker"}, axis=1)
+    VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
+    df_ = df[["Type","Symbol","Name","Value (SGD)","Unrealised P/L (SGD)", "Unrealised P/L (%)"]].rename({"Unrealised P/L (SGD)":"Unrealised P/L","Value (SGD)":"Value"}, axis=1)
 
     treemap_fig = px.treemap(df_, path=[px.Constant("Positions"),"Type","Name"], values="Value", color=VIEW ,
                                                     color_continuous_scale="RdBu",
                                                     range_color = [df_[VIEW].min(), df_[VIEW].max()],
-                                                    hover_data = {"Name":False,"Ticker":True,"P/L":":$,.2f","Value":":$,.2f","P/L (%)":":.2%"}, branchvalues="total")
+                                                    hover_data = {"Name":False,"Symbol":True,"Unrealised P/L":":$,.2f","Value":":$,.2f","Unrealised P/L (%)":":.2%"}, branchvalues="total")
     treemap_fig.update_layout(margin = dict(t=0), template=TEMPLATE)
 
 
@@ -109,15 +144,15 @@ def generate_treemap(df, value):
 
 
 def generate_line(df, value, ticker_list):
-    VIEW = "P/L" if value == "Absolute" else "P/L (%)"
+    VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
     FORMAT = "%{y:$,.2f}" if value == "Absolute" else "%{y:.2%}"
-    df_ = df.rename({"P/L (SGD)":"P/L"}, axis=1).copy()
+    df_ = df.rename({"Unrealised P/L (SGD)":"Unrealised P/L"}, axis=1).copy()
 
     line_fig = go.Figure()
 
     if ticker_list == None or len(ticker_list) ==0:
         df_ = df_.groupby("Date").sum().reset_index()
-        df_["P/L (%)"] = df_["P/L"] / df_["Amount (SGD)"]
+        df_["Unrealised P/L (%)"] = df_["Unrealised P/L"] / df_["Amount (SGD)"]
         line_fig.add_trace(
             go.Scatter(x=df_["Date"], y=df_[VIEW], mode="lines+markers+text", texttemplate=FORMAT, textposition="bottom right", textfont=dict(size=10)
             )
@@ -131,7 +166,7 @@ def generate_line(df, value, ticker_list):
     else:
         for t in ticker_list:
             df_filtered = df_[df_["Symbol"]==t].groupby("Date").sum().reset_index()
-            df_filtered["P/L (%)"] = df_filtered["P/L"] / df_filtered["Amount (SGD)"]
+            df_filtered["Unrealised P/L (%)"] = df_filtered["Unrealised P/L"] / df_filtered["Amount (SGD)"]
             
             line_fig.add_trace(
                 go.Scatter(x=df_filtered["Date"], y=df_filtered[VIEW], mode="lines+markers", hovertemplate = "%{x}, " + FORMAT, name=t
@@ -149,15 +184,15 @@ def generate_line(df, value, ticker_list):
 
 def generate_table(df):
     df_ = df.copy()
-    df_ = df_.rename({"Previous Close":"Current Price",
-                    "Avg Price":"Price",
-                    "Value (SGD)":"Value",
-                    "P/L (SGD)":"Unrealised P/L",
-                    "P/L (%)":"Unrealised P/L (%)",
-                    "Weightage":"% of Portfolio",
-                    "Shares":"Qty"}, axis=1)
+    total_value = df_["Value (SGD)"].sum()
+    df_["Weightage"] = df_["Value (SGD)"].map(lambda x: x/total_value)
+    df_ = df_.rename({
+                    # "Previous Close":"Current Price",
+                    "Avg_price":"Avg Price",
+                    "Value (SGD)":"Current Value",
+                    "Unrealised P/L (SGD)":"Unrealised P/L",
+                    "Total_holding":"Holding (days)"}, axis=1)
     df_ = df_.sort_values(["Unrealised P/L"], ascending=False)
-    df_["id"] = df_["Symbol"] +"|" + df_["Date"].dt.date.astype(str)
     
     # formatting
     df_["Date"] = df_["Date"].dt.date
@@ -169,14 +204,14 @@ def generate_table(df):
         columns = [
             dict(id="Date", name="Date"),
             dict(id="Name", name="Name"),
-            dict(id="Qty", name="Qty"),
-            dict(id="Price", name="Price",type="numeric",format=money),
-            dict(id="Current Price", name="Current Price",type="numeric",format=money),
+            dict(id="Total Quantity", name="Total Quantity"),
+            dict(id="Avg Price", name="Avg Price",type="numeric",format=money),
+            # dict(id="Current Price", name="Current Price",type="numeric",format=money),
             dict(id="Unrealised P/L", name="Unrealised P/L",type="numeric",format=money),
             dict(id="Unrealised P/L (%)", name="Unrealised P/L (%)",type="numeric",format=percentage),
-            dict(id="Value", name="Value",type="numeric",format=money),
-            dict(id="Holdings (days)", name="Holdings (days)"),
-            dict(id="% of Portfolio", name="% of Portfolio",type="numeric",format=percentage),
+            dict(id="Current Value", name="Current Value",type="numeric",format=money),
+            dict(id="Holding (days)", name="Holding (days)"),
+            dict(id="Weightage", name="Weightage",type="numeric",format=percentage),
         ],
         data=df_.to_dict('records'),
         sort_action="native",
@@ -194,10 +229,10 @@ def generate_table(df):
 
     return table_fig
 def generate_transaction(data, id):
-    open_ = df[["Symbol","Date"]].rename({"Date":"Date_Open"},axis=1).copy()
-    df_ = pd.merge(data, open_, on="Symbol")
+    open_ = df[["Symbol","Date_Open","Avg_exchange_rate"]].copy()
+    df_ = pd.merge(data.drop("Value",axis=1), open_, on="Symbol")
     df_ = df_[df_["Date"]>=df_["Date_Open"]].copy()
-    df_ = df_.rename({"Amount (SGD)":"Value"},axis=1).copy()
+    df_ = df_.rename({"Value_sgd":"Value","Avg_exchange_rate":"Exchange Rate"},axis=1).copy()
 
     # get transactional data
     if id == None or len(id) == 0:
@@ -221,8 +256,8 @@ def generate_transaction(data, id):
             dict(id="Symbol", name="Symbol"),
             dict(id="Action", name="Action"),
             dict(id="Price", name="Price",type="numeric",format=money),
-            dict(id="Shares", name="Shares",type="numeric"),
-            dict(id="Comm", name="Comm",type="numeric",format=money),
+            dict(id="Quantity", name="Quantity",type="numeric"),
+            dict(id="Fees", name="Fees",type="numeric",format=money),
             dict(id="Exchange Rate", name="Exchange Rate",type="numeric"),
             dict(id="Value", name="Value",type="numeric",format=money),
         ],
@@ -298,7 +333,7 @@ layout = html.Div([
                     dcc.Dropdown(id ="type-dropdown", options=[{"label":v, "value":v} for v in df["Type"].unique()], placeholder="Select Asset Class"),
                     html.Br(),
                     html.Br(),
-                    dcc.Dropdown(id="ticker-dropdown", placeholder="Select Ticker",multi=True)
+                    dcc.Dropdown(id="symbol-dropdown", placeholder="Select Symbol",multi=True)
 
                 ])), width=4)
         ]),
@@ -326,7 +361,7 @@ layout = html.Div([
 ])
 
 @app.callback(
-    Output(component_id="ticker-dropdown", component_property="options"),
+    Output(component_id="symbol-dropdown", component_property="options"),
     Input(component_id="type-dropdown", component_property="value")
 )
 def update_ticker_dropdown(value):
@@ -343,7 +378,7 @@ def update_ticker_dropdown(value):
     Output(component_id="line_open",component_property="figure"),
     Input(component_id="radios", component_property="value"),
     Input(component_id="type-dropdown", component_property="value"),
-    Input(component_id="ticker-dropdown",component_property="value")
+    Input(component_id="symbol-dropdown",component_property="value")
 )
 def update_graph(value, type, ticker_list):
     bar_fig = generate_bar(df, value)

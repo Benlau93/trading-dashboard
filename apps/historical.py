@@ -1,6 +1,5 @@
 from dash import html
 from dash import dcc
-from dash.html.Dfn import Dfn
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
@@ -9,25 +8,43 @@ import plotly.graph_objects as go
 from dash.dependencies import Input, Output
 from dash import dash_table
 from app import app
+import requests
+from datetime import date
 
-# test api
-# import requests
-# response = requests.get("http://127.0.0.1:8000/api/transaction")
-# test_df = pd.DataFrame.from_dict(response.json())
-# print(test_df.head())
+# api call to get data from backend
 
-# read excel
-df = pd.read_excel("Transaction Data.xlsx", sheet_name=None)
+# ticker information
+tickerinfo = requests.get("http://127.0.0.1:8000/api/ticker")
+tickerinfo = pd.DataFrame.from_dict(tickerinfo.json())
+tickerinfo["type"] = tickerinfo["type"] + " - " + tickerinfo["currency"].str[:-1]
 
 # transactional data
-data = df["Data"]
-data["DATE"] = data["Date"].dt.strftime("%b-%y")
-data["Type"] = data["Type"] + " - " + data["Currency"].str[:-1]
+data = requests.get("http://127.0.0.1:8000/api/transaction")
+data = pd.DataFrame.from_dict(data.json())
 
 # closed position
-closed_position = df["Closed Position"]
-closed_position["DATE"] = closed_position["Date_Close"].dt.strftime("%b-%y")
-closed_position["Type"] = closed_position["Type"] + " - " + closed_position["Currency"].str[:-1]
+closed = requests.get("http://127.0.0.1:8000/api/closed")
+closed = pd.DataFrame.from_dict(closed.json())
+
+# merge to get tickerinfo
+data = pd.merge(data, tickerinfo, on="symbol")
+closed = pd.merge(closed, tickerinfo, on="symbol")
+
+# formatting and processing
+data.columns = data.columns.str.capitalize()
+data["Date"] = pd.to_datetime(data["Date"], format="%Y-%m-%d")
+data["DATE"] = data["Date"].dt.strftime("%b-%y")
+
+closed.columns = closed.columns.str.capitalize()
+closed["Date"] = pd.to_datetime(closed["Date_close"], format="%Y-%m-%d")
+closed["DATE"] = closed["Date"].dt.strftime("%b-%y")
+closed = closed.rename({
+                        "Pl_sgd":"P/L (SGD)",
+                        "Pl_per":"P/L (%)",
+                        "Holding":"Holding (days)",
+                        "Date_close":"Date_Close",
+                        "Date_open":"Date_Open",
+                        "Id":"id"}, axis=1)
 
 # define template used
 TEMPLATE = "plotly_white"
@@ -207,11 +224,10 @@ def generate_treemap(df):
 def generate_table(df):
     df_ = df.copy()
     df_ = df_.rename({"Type":"Asset Type",
-                    "Price_Open":"Price (Open)",
-                    "Price_Close":"Price (Close)",
+                    "Date_Open":"Date (Open)",
+                    "Date_Close":"Date (Close)",
                     "P/L (SGD)":"P/L"}, axis=1)
-    df_ = df_.sort_values(["P/L"], ascending=False)
-    df_["id"] = df_["Symbol"] +"|" + df_["Date_Open"].dt.date.astype(str) + "|" + df_["Date_Close"].dt.date.astype(str)
+    df_ = df_.sort_values(["Date (Open)","Name"], ascending=[False,True])
 
     # formatting
     money = dash_table.FormatTemplate.money(2)
@@ -220,10 +236,10 @@ def generate_table(df):
     table_fig = dash_table.DataTable(
         id="table",
         columns = [
+            dict(id="Date (Open)", name="Date (Open)"),
+            dict(id="Date (Close)", name="Date (Close)"),
             dict(id="Name", name="Name"),
             dict(id="Asset Type", name="Asset Type"),
-            dict(id="Price (Open)", name="Price (Open)",type="numeric",format=money),
-            dict(id="Price (Close)", name="Price (Close)",type="numeric",format=money),
             dict(id="P/L", name="P/L",type="numeric",format=money),
             dict(id="P/L (%)", name="P/L (%)",type="numeric",format=percentage),
             dict(id="Holding (days)", name="Holding (days)", type="numeric")
@@ -245,20 +261,25 @@ def generate_table(df):
 
 def generate_transaction(df, id):
 
-    df_ = df.rename({"Amount (SGD)":"Value"},axis=1).copy()
+    df_ = df.drop("Value",axis=1).rename({"Value_sgd":"Value",
+                    "Exchange_rate":"Exchange Rate"},axis=1).copy()
     # get transactional data
     if id == None or len(id) == 0:
         df_ = df_.sort_values("Date").copy()
     else:
         id = id[0].split("|")
-        ticker, start, end = id[0], id[1], id[2]
+        if len(id) == 3:
+            ticker, start, end = id[0], id[1], id[2]
+        else:
+            ticker, start = id[0], id[1]
+            end = date.today()
+
         start, end = pd.to_datetime(start,format="%Y-%m-%d"), pd.to_datetime(end,format="%Y-%m-%d")
         df_ = df_[(df_["Symbol"]==ticker) & (df_["Date"] >= start) & (df_["Date"]<=end)].sort_values("Date").copy()
 
     # formatting
     df_["Date"] = df_["Date"].dt.date
     money = dash_table.FormatTemplate.money(2)
-    percentage = dash_table.FormatTemplate.percentage(2)
     
     transaction_fig = dash_table.DataTable(
         id="transaction",
@@ -268,8 +289,8 @@ def generate_transaction(df, id):
             dict(id="Symbol", name="Symbol"),
             dict(id="Action", name="Action"),
             dict(id="Price", name="Price",type="numeric",format=money),
-            dict(id="Shares", name="Shares",type="numeric"),
-            dict(id="Comm", name="Comm",type="numeric",format=money),
+            dict(id="Quantity", name="Quantity",type="numeric"),
+            dict(id="Fees", name="Fees",type="numeric",format=money),
             dict(id="Exchange Rate", name="Exchange Rate",type="numeric"),
             dict(id="Value", name="Value",type="numeric",format=money),
         ],
@@ -288,7 +309,7 @@ def generate_transaction(df, id):
 
     return transaction_fig
 
-table_fig = generate_table(closed_position)
+table_fig = generate_table(closed)
 
 # define layout
 layout = html.Div([
@@ -369,9 +390,9 @@ layout = html.Div([
 )
 def update_date_dropdown(type):
     if type == None:
-        date_options = [{"label":d, "value":d} for d in closed_position.sort_values("Date_Close", ascending=False)["Date_Close"].dt.year.unique()]
+        date_options = [{"label":d, "value":d} for d in closed.sort_values("Date", ascending=False)["Date"].dt.year.unique()]
     else:
-        date_options = [{"label":d, "value":d} for d in closed_position[closed_position["Type"]==type].sort_values("Date_Close", ascending=False)["Date_Close"].dt.year.unique()]
+        date_options = [{"label":d, "value":d} for d in closed[closed["Type"]==type].sort_values("Date", ascending=False)["Date"].dt.year.unique()]
 
     return date_options
 
@@ -382,9 +403,9 @@ def update_date_dropdown(type):
 )
 def update_type_dropdown(date):
     if date == None:
-        type_options = [{"label":d, "value":d} for d in closed_position["Type"].unique()]
+        type_options = [{"label":d, "value":d} for d in closed["Type"].unique()]
     else:
-        type_options = [{"label":d, "value":d} for d in closed_position[closed_position["Date_Close"].dt.year==date]["Type"].unique()]
+        type_options = [{"label":d, "value":d} for d in closed[closed["Date"].dt.year==date]["Type"].unique()]
 
     return type_options
 
@@ -402,20 +423,20 @@ def update_type_dropdown(date):
 def update_graph(date,type):
     if date == None and type == None:
         data_filtered = data.copy()
-        closed_position_filtered = closed_position.copy()
+        closed_position_filtered = closed.copy()
 
     else:
         if date != None and type != None:
             data_filtered = data[(data["Date"].dt.year==date) & (data["Type"]==type)].copy()
-            closed_position_filtered = closed_position[(closed_position["Date_Close"].dt.year==date) & (closed_position["Type"]==type)].copy()
+            closed_position_filtered = closed[(closed["Date"].dt.year==date) & (closed["Type"]==type)].copy()
 
         elif date != None:
             data_filtered = data[(data["Date"].dt.year==date)].copy()
-            closed_position_filtered = closed_position[(closed_position["Date_Close"].dt.year==date)].copy()
+            closed_position_filtered = closed[(closed["Date"].dt.year==date)].copy()
 
         else:
             data_filtered = data[(data["Type"]==type)].copy()
-            closed_position_filtered = closed_position[(closed_position["Type"]==type)].copy()
+            closed_position_filtered = closed[(closed["Type"]==type)].copy()
 
 
 

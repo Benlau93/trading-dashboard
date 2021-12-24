@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import OpenPosition, TransactionModel, TickerInfo, ClosedPosition
+from .models import OpenPosition, TransactionModel, TickerInfo, ClosedPosition, HistoricalPL
 import yfinance as yf
 
 class TransactionSerializer(serializers.ModelSerializer):
@@ -61,3 +61,9 @@ class ClosedSerializer(serializers.ModelSerializer):
             instance.value_sgd = validated_data.get('value_sgd', instance.value_sgd)
             instance.save()
             return instance
+
+
+class HistoricalSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = HistoricalPL
+        fields = "__all__"

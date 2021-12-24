@@ -94,12 +94,12 @@ form = dbc.Form([
 ], id="form")
 
 layout = html.Div([
-    html.Div(id="TEST"),
+    html.Div(id="Form-alert",style={"font-size":"large", "font-family": "Arial, Helvetica, sans-serif"}),
     dbc.Container([
         dbc.Row([
             dbc.Col(
                 dbc.Card(dbc.CardBody([
-                html.P("Add Transaction Data"),
+                html.P("Add Transaction Data", style={"font-size":"xx-large", "font-family": "Arial, Helvetica, sans-serif"}),
                 html.Br(),
                 form
             ]))
@@ -110,8 +110,8 @@ layout = html.Div([
 ], style={"display":"block","text-align":"center"})
 
 @app.callback(
-    Output(component_id="TEST", component_property="children"),
-    Output(component_id="TEST", component_property="className"),
+    Output(component_id="Form-alert", component_property="children"),
+    Output(component_id="Form-alert", component_property="className"),
     Output(component_id="date-picker", component_property="date"),
     Output(component_id="sym-input", component_property="value"),
     Output(component_id="price-input", component_property="value"),
