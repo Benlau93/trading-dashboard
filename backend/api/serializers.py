@@ -51,3 +51,13 @@ class ClosedSerializer(serializers.ModelSerializer):
 
         def create(self, validated_data):
             return ClosedPosition.objects.create(**validated_data)
+        
+        def update(self, instance, validated_data):
+            instance.id = validated_data.get('id', instance.id)
+            instance.date_close = validated_data.get('date_close', instance.date_close)
+            instance.holding = validated_data.get('holding', instance.holding)
+            instance.pl = validated_data.get('pl', instance.pl)
+            instance.pl_sgd = validated_data.get('pl_sgd', instance.pl_sgd)
+            instance.value_sgd = validated_data.get('value_sgd', instance.value_sgd)
+            instance.save()
+            return instance

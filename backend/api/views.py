@@ -4,7 +4,7 @@ from datetime import date
 from datetime import datetime
 from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer
 from rest_framework.response import Response
-from .models import TransactionModel, TickerInfo, OpenPosition
+from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition
 import yfinance as yf
 import numpy as np
 
@@ -96,43 +96,88 @@ class TransactionViews(APIView):
                         return Response(verbose,status=status.HTTP_400_BAD_REQUEST)
                 else:
                     # close position
-
-                    # check if close all
-                    if update_data["total_quantity"] < data["quantity"]:
+                    
+                    # check if valid quantity
+                    if open_position.total_quantity < data["quantity"]:
                         verbose = {"verbose":"Invalid transaction. Please ensure you have sufficient quantity"}
                         return Response(verbose,status=status.HTTP_400_BAD_REQUEST)
-                    elif update_data["total_quantity"] == data["quantity"]:
-                        # add to closed position
-                        id = open_position.id + "|" + date_str
-                        holding = (date_ - open_position.date_open).days
-                        pl = data["value"] - open_position.total_value
-                        pl_sgd = data["value_sgd"] - open_position.total_value_sgd
-                        pl_per = pl_sgd / open_position.total_value_sgd
-                        closed_data = {"id":id,
-                                        "symbol":data["symbol"],
-                                        "date_open":open_position.date_open,
-                                        "date_close":date_,
-                                        "holding":holding,
-                                        "pl":pl,
-                                        "pl_sgd":pl_sgd,
-                                        "pl_per":pl_per}
+                    else:
 
-                        closed_serialized = self.close_serializer(data=closed_data)
+                        
+                        new_qty = open_position.total_quantity - data["quantity"]
+
+                        if new_qty == 0:
+                            # close all position
+                            id = open_position.id + "|" + date_str
+                        else:
+                            id = open_position.id
+                            update_data.update({
+                                "total_quantity":new_qty,
+                                "total_fees": open_position.total_fees + data["fees"],
+                                "total_value":open_position.total_value / open_position.total_quantity * new_qty,
+                                "total_value_sgd":open_position.total_value_sgd / open_position.total_quantity * new_qty
+                            })
+                        
+                        # add to closed position
+                        
+                        holding = (date_ - open_position.date_open).days
+                        pl = data["value"] - (open_position.total_value / open_position.total_quantity * data["quantity"])
+                        pl_sgd = data["value_sgd"] - (open_position.total_value_sgd / open_position.total_quantity * data["quantity"])
+                        pl_per = pl_sgd / (open_position.total_value_sgd / open_position.total_quantity * data["quantity"])
+
+
+                        
+                        # check if existing partial closed position
+                        closed_position = ClosedPosition.objects.filter(pk=open_position.id)
+
+                        if len(closed_position) == 1:
+                            closed_position = closed_position[0]
+                            closed_serialized = self.close_serializer(closed_position)
+                            closed_data = closed_serialized.data
+                            closed_data.update({
+                                "id":id,
+                                "date_close":date_,
+                                "holding":holding,
+                                "pl":closed_position.pl + pl,
+                                "pl_sgd": closed_position.pl_sgd + pl_sgd
+                            })
+                            closed_data.update({"pl_per":closed_data["pl_sgd"] / closed_data["value_sgd_open"]})
+
+                            # delete closed object if complete close
+                            if new_qty == 0:
+                                closed_position.delete()
+
+                        else:
+                            closed_position = None
+                            closed_data = {"id":id,
+                                            "symbol":data["symbol"],
+                                            "date_open":open_position.date_open,
+                                            "date_close":date_,
+                                            "holding":holding,
+                                            "pl":pl,
+                                            "pl_sgd":pl_sgd,
+                                            "pl_per":pl_per,
+                                            "value_sgd_open":open_position.total_value_sgd}
+
+                        closed_serialized = self.close_serializer(closed_position, data=closed_data)
                         if closed_serialized.is_valid():
                             # add closed position
                             closed_serialized.save()
-                            
-                            # delete open position
-                            open_position.delete()
-                            
-                            verbose = {"verbose":f"Closed a Position, closed {data['symbol']} with P/L of ${round(pl_sgd,2)}"}
+
+                            if new_qty == 0:
+                                # delete open position
+                                open_position.delete()
+                                verbose = {"verbose":f"Closed a Position, closed {data['symbol']} with P/L of ${round(pl_sgd,2)}"}
+                            else:
+                                # update open position
+                                open_serialized = self.open_serializer(open_position,data=update_data)
+                                if open_serialized.is_valid():
+                                    open_serialized.save()
+                                    verbose = {"verbose":f"Partially Closed a Position, closed {data['quantity']} of {data['symbol']} with P/L of ${round(pl_sgd,2)}"}
+                                else:
+                                    return Response(verbose,status=status.HTTP_400_BAD_REQUEST)
                         else:
                             return Response(verbose,status=status.HTTP_400_BAD_REQUEST)
-                        
-                    else:
-                        # close some
-                        pass
-
                     
 
             else:

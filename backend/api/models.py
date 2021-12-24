@@ -31,6 +31,7 @@ class ClosedPosition(models.Model):
     pl = models.FloatField(blank=False, db_column="PL")
     pl_sgd = models.FloatField(blank=False, db_column="PL_SGD")
     pl_per = models.FloatField(blank=False, db_column="PL_PERCENTAGE")
+    value_sgd_open = models.FloatField(blank=False, default=0, db_column="VALUE_SGD_OPEN")
 
 class OpenPosition(models.Model):
     id = models.CharField(max_length=50, primary_key=True)
