@@ -44,14 +44,10 @@ class OpenPosition(models.Model):
     total_value = models.FloatField(blank = False, db_column="TOTAL_VALUE")
     total_value_sgd = models.FloatField(blank = False, db_column="TOTAL_VALUE_SGD")
     total_holding = models.IntegerField(blank = False, db_column="HOLDING_DAY")
-    unrealised_pl = models.FloatField(blank = False, db_column="UNREALISED_PL")
-    unrealised_pl_sgd = models.FloatField(blank = False, db_column="UNREALISED_PL_SGD")
-    unrealised_pl_per = models.FloatField(blank = False, db_column="UNREALISED_PL_PERCENTAGE")
-    current_value_sgd = models.FloatField(blank = False, db_column="CURRENT_VALUE_SGD")
 
 
 class HistoricalPL(models.Model):
     date = models.DateField(blank=False, db_column="DATE")
     symbol = models.CharField(max_length=20, blank=False, db_column="SYMBOL")
-    value_sgd = models.FloatField(blank = False, db_column="VALUE_SGD")
+    price = models.FloatField(blank = False, db_column="PRICE", default=0)
     pl_sgd = models.FloatField(blank = False, db_column="PL_SGD")

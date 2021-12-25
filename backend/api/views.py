@@ -7,6 +7,8 @@ from rest_framework.response import Response
 from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition, HistoricalPL
 import yfinance as yf
 import numpy as np
+import pandas as pd
+from django.db.models import Min
 
 class TickerViews(APIView):
     ticker_serializer = TickerSerializer
@@ -248,5 +250,41 @@ class TransactionViews(APIView):
 class RefreshViews(APIView):
 
     def get(self, request, format=None):
-        print("HERE")
+
+        # get all open position data
+        open_position = OpenPosition.objects.all().values("symbol","date_open","total_quantity","avg_price","avg_exchange_rate","total_fees","total_value_sgd")
+        open_position = pd.DataFrame(open_position)
+        
+        # get list of open position symbol
+        symbol_list = open_position["symbol"].unique().tolist()
+        symbol_list = " ".join(symbol_list)
+
+        # get earliest date
+        min_date = open_position["date_open"].min()
+
+        # # download yfinance price
+        data = yf.download(symbol_list, start = min_date, interval="1d", group_by="ticker").reset_index()
+        data = data.melt(id_vars="Date", var_name=["symbol","OHLC"], value_name="price")
+        data = data[data["OHLC"]=="Close"].drop(["OHLC"],axis=1)
+
+        # get daily P/L
+        historical = pd.merge(open_position,data,on="symbol").dropna()
+        historical = historical[historical["Date"]>=historical["date_open"]].copy()
+        historical["pl_sgd"] = ((historical["price"] * historical["total_quantity"]) * (historical["avg_exchange_rate"] * 0.99)) - historical["total_value_sgd"]
+        historical = historical[["Date","symbol","pl_sgd","price"]].copy()
+        historical.columns = historical.columns.str.lower()
+
+        # delete exisitng historical data
+        exist = HistoricalPL.objects.all().delete()
+
+        # insert into historical model
+        df_records = historical.to_dict(orient="records")
+        model_instances = [HistoricalPL(
+            date = record["date"],
+            symbol = record["symbol"],
+            price = record["price"],
+            pl_sgd = record["pl_sgd"],
+        ) for record in df_records]
+        HistoricalPL.objects.bulk_create(model_instances)
+
         return Response(status=status.HTTP_200_OK)

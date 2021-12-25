@@ -24,8 +24,10 @@ data = pd.DataFrame.from_dict(data.json())
 df = requests.get("http://127.0.0.1:8000/api/open")
 df = pd.DataFrame.from_dict(df.json())
 
-# read in historical p/l
-df_pl = pd.read_csv("Historical PL.csv")
+# get historical pl
+df_pl = requests.get("http://127.0.0.1:8000/api/historical")
+df_pl = pd.DataFrame.from_dict(df_pl.json())
+# df_pl = pd.read_csv("Historical PL.csv")
 
 # merge to get tickerinfo
 data = pd.merge(data, tickerinfo, on="symbol")
@@ -45,19 +47,24 @@ df.columns = df.columns.str.capitalize()
 df["Date"] = pd.to_datetime(df["Date_open"], format="%Y-%m-%d")
 df = df.rename({
     "Id":"id",
-    "Current_value_sgd":"Value (SGD)",
-    "Unrealised_pl_sgd":"Unrealised P/L (SGD)",
     "Total_value_sgd": "Amount (SGD)",
-    "Unrealised_pl_per":"Unrealised P/L (%)",
     "Total_quantity":"Total Quantity",
     "Date_open":"Date_Open"
 }, axis=1)
 
-df_pl["Date"] = pd.to_datetime(df_pl["Date"], format="%d/%m/%Y")
+df_pl.columns = df_pl.columns.str.capitalize()
+df_pl["Date"] = pd.to_datetime(df_pl["Date"], format="%Y-%m-%d")
 df_pl = pd.merge(df_pl, type_map, on="Symbol")
 df_pl = df_pl.rename({
-    "P/L (SGD)":"Unrealised P/L"
+    "Pl_sgd":"Unrealised P/L",
 }, axis=1)
+df_pl = pd.merge(df_pl,df[["Symbol","Amount (SGD)"]], on="Symbol")
+current_price = df_pl.sort_values(["Symbol","Date"]).groupby("Symbol").tail(1)[["Symbol","Unrealised P/L","Price"]]
+
+# merge historical pl to open position to get current pl
+df = pd.merge(df, current_price)
+df["Unrealised P/L (%)"] = df["Unrealised P/L"] / df["Amount (SGD)"]
+df["Value"] = df["Amount (SGD)"] + df["Unrealised P/L"]
 
 # define template used
 TEMPLATE = "plotly_white"
@@ -66,9 +73,9 @@ TEMPLATE = "plotly_white"
 def generate_indicator(df):
     df_ = df.copy()
     
-    current_value = df_["Value (SGD)"].sum()
-    unrealised_pl = df_["Unrealised P/L (SGD)"].sum()
-    unrealised_pl_per = df_["Unrealised P/L (SGD)"].sum() / df_["Amount (SGD)"].sum()
+    current_value = df_["Value"].sum()
+    unrealised_pl = df_["Unrealised P/L"].sum()
+    unrealised_pl_per = df_["Unrealised P/L"].sum() / df_["Amount (SGD)"].sum()
     total_position = df_["Name"].nunique()
 
     indicator_fig = go.Figure()
@@ -113,7 +120,7 @@ def generate_indicator(df):
 def generate_bar(df, value):
     VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
     FORMAT = "%{y:$,.2f}" if value == "Absolute" else "%{y:.2%}"
-    df_ = df.sort_values("Date")[["Name","Symbol","Unrealised P/L (SGD)","Unrealised P/L (%)"]].rename({"Unrealised P/L (SGD)":"Unrealised P/L"}, axis=1)
+    df_ = df.sort_values("Date")[["Name","Symbol","Unrealised P/L","Unrealised P/L (%)"]].copy()
 
     bar_fig = go.Figure()
     bar_fig.add_trace(
@@ -131,7 +138,7 @@ def generate_bar(df, value):
 
 def generate_treemap(df, value):
     VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
-    df_ = df[["Type","Symbol","Name","Value (SGD)","Unrealised P/L (SGD)", "Unrealised P/L (%)"]].rename({"Unrealised P/L (SGD)":"Unrealised P/L","Value (SGD)":"Value"}, axis=1)
+    df_ = df[["Type","Symbol","Name","Value","Unrealised P/L", "Unrealised P/L (%)"]].copy()
 
     treemap_fig = px.treemap(df_, path=[px.Constant("Positions"),"Type","Name"], values="Value", color=VIEW ,
                                                     color_continuous_scale="RdBu",
@@ -146,7 +153,7 @@ def generate_treemap(df, value):
 def generate_line(df, value, ticker_list):
     VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
     FORMAT = "%{y:$,.2f}" if value == "Absolute" else "%{y:.2%}"
-    df_ = df.rename({"Unrealised P/L (SGD)":"Unrealised P/L"}, axis=1).copy()
+    df_ = df.copy()
 
     line_fig = go.Figure()
 
@@ -184,13 +191,12 @@ def generate_line(df, value, ticker_list):
 
 def generate_table(df):
     df_ = df.copy()
-    total_value = df_["Value (SGD)"].sum()
-    df_["Weightage"] = df_["Value (SGD)"].map(lambda x: x/total_value)
+    total_value = df_["Value"].sum()
+    df_["Weightage"] = df_["Value"].map(lambda x: x/total_value)
     df_ = df_.rename({
-                    # "Previous Close":"Current Price",
+                    "Price":"Current Price",
                     "Avg_price":"Avg Price",
-                    "Value (SGD)":"Current Value",
-                    "Unrealised P/L (SGD)":"Unrealised P/L",
+                    "Value":"Current Value",
                     "Total_holding":"Holding (days)"}, axis=1)
     df_ = df_.sort_values(["Unrealised P/L"], ascending=False)
     
@@ -206,7 +212,7 @@ def generate_table(df):
             dict(id="Name", name="Name"),
             dict(id="Total Quantity", name="Total Quantity"),
             dict(id="Avg Price", name="Avg Price",type="numeric",format=money),
-            # dict(id="Current Price", name="Current Price",type="numeric",format=money),
+            dict(id="Current Price", name="Current Price",type="numeric",format=money),
             dict(id="Unrealised P/L", name="Unrealised P/L",type="numeric",format=money),
             dict(id="Unrealised P/L (%)", name="Unrealised P/L (%)",type="numeric",format=percentage),
             dict(id="Current Value", name="Current Value",type="numeric",format=money),
@@ -246,7 +252,6 @@ def generate_transaction(data, id):
     # formatting
     df_["Date"] = df_["Date"].dt.date
     money = dash_table.FormatTemplate.money(2)
-    percentage = dash_table.FormatTemplate.percentage(2)
     
     transaction_fig = dash_table.DataTable(
         id="transaction-open",
@@ -407,14 +412,19 @@ def update_table(id):
 @app.callback(
     Output(component_id="refresh-alert", component_property="children"),
     Output(component_id="refresh-alert", component_property="className"),
-    Output("refresh-url", "href"),
+    Output(component_id = "refresh-url", component_property = "href"),
     Input(component_id="refresh-button", component_property="n_clicks"),
     prevent_initial_call=True,
 )
 def refresh_data(n_clicks):
-    if n_clicks >= 1:
+    if n_clicks != None and n_clicks >= 1:
         response = requests.get("http://127.0.0.1:8000/api/refresh")
-        if response.status_code == 200:
-            return dbc.Alert("Price successfully refreshed", color="Primary"), "alert alert-success", "http://127.0.0.1:8050/portfolio/refresh"
+        if n_clicks == 1:
+            return_url = "http://127.0.0.1:8050/portfolio/refresh"
         else:
-            return dbc.Alert("Price failed to refresh, please try again later", color="danger"), "alert alert-danger", "http://127.0.0.1:8050/portfolio"
+            return_url = "http://127.0.0.1:8050/portfolio"
+
+        if response.status_code == 200:
+            return dbc.Alert("Price successfully refreshed", color="Primary"), "alert alert-success", return_url
+        else:
+            return dbc.Alert("Price failed to refresh, please try again later", color="danger"), "alert alert-danger", return_url
