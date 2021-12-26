@@ -248,6 +248,7 @@ class TransactionViews(APIView):
 
 
 class RefreshViews(APIView):
+    hist_serializer = HistoricalSerializer
 
     def get(self, request, format=None):
 
@@ -274,17 +275,22 @@ class RefreshViews(APIView):
         historical = historical[["Date","symbol","pl_sgd","price"]].copy()
         historical.columns = historical.columns.str.lower()
 
+       
+
+        
         # delete exisitng historical data
         exist = HistoricalPL.objects.all().delete()
 
         # insert into historical model
         df_records = historical.to_dict(orient="records")
         model_instances = [HistoricalPL(
-            date = record["date"],
-            symbol = record["symbol"],
-            price = record["price"],
-            pl_sgd = record["pl_sgd"],
+        date = record["date"],
+        symbol = record["symbol"],
+        price = record["price"],
+        pl_sgd = record["pl_sgd"],
         ) for record in df_records]
         HistoricalPL.objects.bulk_create(model_instances)
 
         return Response(status=status.HTTP_200_OK)
+
+        

@@ -5,46 +5,10 @@ import pandas as pd
 import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from dash import dash_table
 from app import app
-import requests
 from datetime import date
-
-# api call to get data from backend
-
-# ticker information
-tickerinfo = requests.get("http://127.0.0.1:8000/api/ticker")
-tickerinfo = pd.DataFrame.from_dict(tickerinfo.json())
-tickerinfo["type"] = tickerinfo["type"] + " - " + tickerinfo["currency"].str[:-1]
-
-# transactional data
-data = requests.get("http://127.0.0.1:8000/api/transaction")
-data = pd.DataFrame.from_dict(data.json())
-
-# closed position
-closed = requests.get("http://127.0.0.1:8000/api/closed")
-closed = pd.DataFrame.from_dict(closed.json())
-
-# merge to get tickerinfo
-data = pd.merge(data, tickerinfo, on="symbol")
-closed = pd.merge(closed, tickerinfo, on="symbol")
-
-# formatting and processing
-data.columns = data.columns.str.capitalize()
-data["Date"] = pd.to_datetime(data["Date"], format="%Y-%m-%d")
-data["DATE"] = data["Date"].dt.strftime("%b-%y")
-
-closed.columns = closed.columns.str.capitalize()
-closed["Date"] = pd.to_datetime(closed["Date_close"], format="%Y-%m-%d")
-closed["DATE"] = closed["Date"].dt.strftime("%b-%y")
-closed = closed.rename({
-                        "Pl_sgd":"P/L (SGD)",
-                        "Pl_per":"P/L (%)",
-                        "Holding":"Holding (days)",
-                        "Date_close":"Date_Close",
-                        "Date_open":"Date_Open",
-                        "Id":"id"}, axis=1)
 
 # define template used
 TEMPLATE = "plotly_white"
@@ -227,7 +191,9 @@ def generate_table(df):
                     "Date_Open":"Date (Open)",
                     "Date_Close":"Date (Close)",
                     "P/L (SGD)":"P/L"}, axis=1)
-    df_ = df_.sort_values(["Date (Open)","Name"], ascending=[False,True])
+    df_ = df_.sort_values(["Date (Close)","Name"], ascending=[False,True])
+    for dat in ["Date (Open)","Date (Close)"]:
+        df_[dat] = df_[dat].dt.date
 
     # formatting
     money = dash_table.FormatTemplate.money(2)
@@ -309,7 +275,6 @@ def generate_transaction(df, id):
 
     return transaction_fig
 
-table_fig = generate_table(closed)
 
 # define layout
 layout = html.Div([
@@ -370,7 +335,7 @@ layout = html.Div([
                                 width=6, className="mt-2")
             ], justify="center"),
             dbc.Row([
-                dbc.Col(id="table-container",children=table_fig,width={"size":10,"offset":1})
+                dbc.Col(id="table-container",width={"size":10,"offset":1})
             ], align="center"),
             html.Br(),
             dbc.Row([
@@ -386,9 +351,15 @@ layout = html.Div([
 
 @app.callback(
     Output(component_id="date-dropdown", component_property="options"),
-    Input(component_id="type-dropdown", component_property="value")
+    Input(component_id="type-dropdown", component_property="value"),
+    State(component_id="closed-store", component_property="data")
 )
-def update_date_dropdown(type):
+def update_date_dropdown(type, closed):
+    if closed == None:
+        return None
+    closed = pd.DataFrame(closed)
+    closed["Date"] = pd.to_datetime(closed["Date"])
+
     if type == None:
         date_options = [{"label":d, "value":d} for d in closed.sort_values("Date", ascending=False)["Date"].dt.year.unique()]
     else:
@@ -399,9 +370,16 @@ def update_date_dropdown(type):
 
 @app.callback(
     Output(component_id="type-dropdown", component_property="options"),
-    Input(component_id="date-dropdown", component_property="value")
+    Input(component_id="date-dropdown", component_property="value"),
+    State(component_id="closed-store", component_property="data")
 )
-def update_type_dropdown(date):
+def update_type_dropdown(date, closed):
+    if closed == None:
+        return None
+
+    closed = pd.DataFrame(closed)
+    closed["Date"] = pd.to_datetime(closed["Date"])
+
     if date == None:
         type_options = [{"label":d, "value":d} for d in closed["Type"].unique()]
     else:
@@ -417,10 +395,22 @@ def update_type_dropdown(date):
     Output(component_id="stacked_bar", component_property="figure"),
     Output(component_id="treemap-closed-profit", component_property="figure"),
     Output(component_id="treemap-closed-loss", component_property="figure"),
+    Output(component_id="table-container", component_property="children"),
     Input(component_id="date-dropdown", component_property="value"),
-    Input(component_id="type-dropdown", component_property="value")
+    Input(component_id="type-dropdown", component_property="value"),
+    State(component_id="data-store", component_property="data"),
+    State(component_id="closed-store", component_property="data")
 )
-def update_graph(date,type):
+def update_graph(date,type, data, closed):
+    if data == None or closed == None:
+        return None, None, None, None, None, None, None, None
+
+    data = pd.DataFrame(data)
+    data["Date"] = pd.to_datetime(data["Date"])
+    closed = pd.DataFrame(closed)
+    for dat in ["Date_Open","Date_Close","Date"]:
+        closed[dat] = pd.to_datetime(closed[dat])
+    
     if date == None and type == None:
         data_filtered = data.copy()
         closed_position_filtered = closed.copy()
@@ -446,15 +436,23 @@ def update_graph(date,type):
     bar_fig = generate_bar(closed_position_filtered)
     stack_bar = generate_stack_bar(data_filtered)
     treemap_closed_profit, treemap_closed_loss = generate_treemap(closed_position_filtered)
+    table_fig = generate_table(closed)
 
-    return indicator_fig, trade_indicator, line_fig, bar_fig, stack_bar,treemap_closed_profit,treemap_closed_loss
+    return indicator_fig, trade_indicator, line_fig, bar_fig, stack_bar,treemap_closed_profit,treemap_closed_loss, table_fig
 
 
 @app.callback(
     Output(component_id="transaction-container", component_property="children"),
-    Input(component_id="table", component_property="selected_row_ids")
+    Input(component_id="table", component_property="selected_row_ids"),
+    State(component_id="data-store", component_property="data"),
 )
-def update_table(id):
+def update_table(id, data):
+    if data == None:
+        return None
+
+    data = pd.DataFrame(data)
+    data["Date"] = pd.to_datetime(data["Date"])
+
     transaction_fig = generate_transaction(data,id)
 
     return transaction_fig

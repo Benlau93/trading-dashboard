@@ -4,67 +4,10 @@ import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from dash import dash_table
 from app import app
 import requests
-
-
-# ticker information
-tickerinfo = requests.get("http://127.0.0.1:8000/api/ticker")
-tickerinfo = pd.DataFrame.from_dict(tickerinfo.json())
-
-
-# transactional data
-data = requests.get("http://127.0.0.1:8000/api/transaction")
-data = pd.DataFrame.from_dict(data.json())
-
-# open position
-df = requests.get("http://127.0.0.1:8000/api/open")
-df = pd.DataFrame.from_dict(df.json())
-
-# get historical pl
-df_pl = requests.get("http://127.0.0.1:8000/api/historical")
-df_pl = pd.DataFrame.from_dict(df_pl.json())
-# df_pl = pd.read_csv("Historical PL.csv")
-
-# merge to get tickerinfo
-data = pd.merge(data, tickerinfo, on="symbol")
-df = pd.merge(df, tickerinfo, on="symbol")
-
-# formatting
-tickerinfo.columns = tickerinfo.columns.str.capitalize()
-tickerinfo["Type"] = tickerinfo["Type"] + " - " + tickerinfo["Currency"].str[:-1]
-type_map = tickerinfo[["Symbol","Type"]].drop_duplicates()
-
-data.columns = data.columns.str.capitalize()
-data["Date"] = pd.to_datetime(data["Date"], format="%Y-%m-%d")
-data["DATE"] = data["Date"].dt.strftime("%b-%y")
-
-
-df.columns = df.columns.str.capitalize()
-df["Date"] = pd.to_datetime(df["Date_open"], format="%Y-%m-%d")
-df = df.rename({
-    "Id":"id",
-    "Total_value_sgd": "Amount (SGD)",
-    "Total_quantity":"Total Quantity",
-    "Date_open":"Date_Open"
-}, axis=1)
-
-df_pl.columns = df_pl.columns.str.capitalize()
-df_pl["Date"] = pd.to_datetime(df_pl["Date"], format="%Y-%m-%d")
-df_pl = pd.merge(df_pl, type_map, on="Symbol")
-df_pl = df_pl.rename({
-    "Pl_sgd":"Unrealised P/L",
-}, axis=1)
-df_pl = pd.merge(df_pl,df[["Symbol","Amount (SGD)"]], on="Symbol")
-current_price = df_pl.sort_values(["Symbol","Date"]).groupby("Symbol").tail(1)[["Symbol","Unrealised P/L","Price"]]
-
-# merge historical pl to open position to get current pl
-df = pd.merge(df, current_price)
-df["Unrealised P/L (%)"] = df["Unrealised P/L"] / df["Amount (SGD)"]
-df["Value"] = df["Amount (SGD)"] + df["Unrealised P/L"]
 
 # define template used
 TEMPLATE = "plotly_white"
@@ -234,8 +177,8 @@ def generate_table(df):
     )
 
     return table_fig
-def generate_transaction(data, id):
-    open_ = df[["Symbol","Date_Open","Avg_exchange_rate"]].copy()
+def generate_transaction(data, open_position, id):
+    open_ = open_position[["Symbol","Date_Open","Avg_exchange_rate"]].copy()
     df_ = pd.merge(data.drop("Value",axis=1), open_, on="Symbol")
     df_ = df_[df_["Date"]>=df_["Date_Open"]].copy()
     df_ = df_.rename({"Value_sgd":"Value","Avg_exchange_rate":"Exchange Rate"},axis=1).copy()
@@ -281,10 +224,6 @@ def generate_transaction(data, id):
 
     return transaction_fig
 
-indicator_fig = generate_indicator(df)
-table_fig = generate_table(df)
-
-
 layout = html.Div([
     dcc.Location(id='refresh-url', refresh=True),
     html.Div(id="refresh-alert",style={"font-size":"large", "font-family": "Arial, Helvetica, sans-serif","text-align":"center"}),
@@ -294,7 +233,7 @@ layout = html.Div([
             dbc.Col(dbc.Button("Add Transaction",color="success",href="/portfolio/add",style={"margin-top":10, "margin-left":0}),width=2)
         ], align="start", justify="end"),
         dbc.Row([
-            dbc.Col(dcc.Graph(id="main-indicator",figure=indicator_fig), width={"size":8,"offset":2}),
+            dbc.Col(dcc.Graph(id="main-indicator"), width={"size":8,"offset":2}),
         ],align="center"),
         dbc.Row([
             dbc.Col(dbc.Card(html.H3(children='BreakDown',
@@ -338,7 +277,7 @@ layout = html.Div([
                 dbc.CardBody([
                     html.H4("Select Filters", className="text-center"),
                     html.Br(),
-                    dcc.Dropdown(id ="type-dropdown", options=[{"label":v, "value":v} for v in df["Type"].unique()], placeholder="Select Asset Class"),
+                    dcc.Dropdown(id ="type-dropdown-open", placeholder="Select Asset Class"),
                     html.Br(),
                     html.Br(),
                     dcc.Dropdown(id="symbol-dropdown", placeholder="Select Symbol",multi=True)
@@ -355,7 +294,7 @@ layout = html.Div([
                                 width=6, className="mt-2")
             ], justify="center"),
         dbc.Row([
-            dbc.Col(table_fig, width=10)
+            dbc.Col(id="table-container-open", width=10)
         ], align="center", justify="center"),
         html.Br(),
         dbc.Row([
@@ -369,43 +308,91 @@ layout = html.Div([
 ])
 
 @app.callback(
-    Output(component_id="symbol-dropdown", component_property="options"),
-    Input(component_id="type-dropdown", component_property="value")
+    Output(component_id="type-dropdown-open", component_property="options"),
+    Input(component_id="symbol-dropdown", component_property="value"),
+    State(component_id="open-store", component_property="data")
 )
-def update_ticker_dropdown(value):
-    if value == None:
-        options = [{"label":v, "value":v} for v in df["Symbol"].unique()]
-    else:
-        options = [{"label":v, "value":v} for v in df[df["Type"]==value]["Symbol"].unique()]
+def update_type_dropdown(value, open_position):
+    if open_position == None:
+        return None
+    open_position = pd.DataFrame(open_position)
+
+    options=[{"label":v, "value":v} for v in open_position["Type"].unique()]
 
     return options
 
 @app.callback(
+    Output(component_id="symbol-dropdown", component_property="options"),
+    Input(component_id="type-dropdown-open", component_property="value"),
+    State(component_id="open-store", component_property="data")
+)
+def update_ticker_dropdown(value, open_position):
+    if open_position == None:
+        return None
+    open_position = pd.DataFrame(open_position)
+
+    if value == None:
+        options = [{"label":v, "value":v} for v in open_position["Symbol"].unique()]
+    else:
+        options = [{"label":v, "value":v} for v in open_position[open_position["Type"]==value]["Symbol"].unique()]
+
+    return options
+
+@app.callback(
+    Output(component_id="main-indicator",component_property="figure"),
     Output(component_id="bar_open",component_property="figure"),
     Output(component_id="treemap_open",component_property="figure"),
     Output(component_id="line_open",component_property="figure"),
+    Output(component_id="table-container-open",component_property="children"),
     Input(component_id="radios", component_property="value"),
-    Input(component_id="type-dropdown", component_property="value"),
-    Input(component_id="symbol-dropdown",component_property="value")
+    Input(component_id="type-dropdown-open", component_property="value"),
+    Input(component_id="symbol-dropdown",component_property="value"),
+    State(component_id="open-store", component_property="data"),
+    State(component_id="historical-store", component_property="data"),
 )
-def update_graph(value, type, ticker_list):
-    bar_fig = generate_bar(df, value)
-    treemap_fig = generate_treemap(df, value)
+def update_graph(value, type, ticker_list, open_position, historical):
+    if open_position == None or historical == None:
+        return None, None, None, None, None
+
+    open_position = pd.DataFrame(open_position)
+    for dat in ["Date","Date_Open"]:
+        open_position[dat] = pd.to_datetime(open_position[dat])
+
+    historical = pd.DataFrame(historical)
+    historical["Date"] = pd.to_datetime(historical["Date"])
+
+
+    bar_fig = generate_bar(open_position, value)
+    treemap_fig = generate_treemap(open_position, value)
 
     if type == None:
-        line_fig = generate_line(df_pl, value,ticker_list)
+        line_fig = generate_line(historical, value,ticker_list)
     else:
-        line_fig = generate_line(df_pl, value, None)
+        line_fig = generate_line(historical[historical["Type"]==type], value, None)
+
+    indicator_fig = generate_indicator(open_position)
+    table_fig = generate_table(open_position)
 
 
-    return bar_fig, treemap_fig, line_fig
+    return indicator_fig, bar_fig, treemap_fig, line_fig, table_fig
 
 @app.callback(
     Output(component_id="transaction-container-open", component_property="children"),
-    Input(component_id="table-open", component_property="selected_row_ids")
+    Input(component_id="table-open", component_property="selected_row_ids"),
+    State(component_id="data-store", component_property="data"),
+    State(component_id="open-store", component_property="data"),
 )
-def update_table(id):
-    transaction_fig = generate_transaction(data,id)
+def update_table(id, data, open_position):
+    if data == None or open_position == None:
+        return None
+    data = pd.DataFrame(data)
+    data["Date"] = pd.to_datetime(data["Date"])
+
+    open_position = pd.DataFrame(open_position)
+    for dat in ["Date","Date_Open"]:
+        open_position[dat] = pd.to_datetime(open_position[dat])
+
+    transaction_fig = generate_transaction(data,open_position ,id)
 
     return transaction_fig
 

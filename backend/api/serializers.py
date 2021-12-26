@@ -67,3 +67,6 @@ class HistoricalSerializer(serializers.ModelSerializer):
     class Meta:
         model = HistoricalPL
         fields = "__all__"
+
+    def create(self, validated_data):
+        return HistoricalPL.objects.create(**validated_data)
