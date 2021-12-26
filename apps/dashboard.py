@@ -285,7 +285,7 @@ layout = html.Div([
             ]),
             dbc.Row([
                 dbc.Col(
-                    [dcc.Graph(id="indicator")], width={"size": 8, "offset": 2})]),
+                    [dcc.Graph(id="indicator")], width=10)], justify="center"),
             dbc.Row([
                 dbc.Col(dbc.Card(html.H3(children='P/L by Month-Year',
                                  className="text-center text-light bg-dark"), body=True, color="dark")
