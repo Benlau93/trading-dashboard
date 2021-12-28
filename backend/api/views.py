@@ -8,7 +8,6 @@ from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition, 
 import yfinance as yf
 import numpy as np
 import pandas as pd
-from django.db.models import Min
 
 class TickerViews(APIView):
     ticker_serializer = TickerSerializer
@@ -69,6 +68,7 @@ class TransactionViews(APIView):
         # transformation
         data["value"] = data["price"] * data["quantity"] + (-data["fees"] if data["action"]=="Sell" else data["fees"])
         data["value_sgd"] = data["value"] * data["exchange_rate"]
+        data["fess"] = data["fees"] * data["exchange_rate"]
         data["id"] = data["symbol"] + "|" + date_str + "|" + data["action"]
 
         # update data
