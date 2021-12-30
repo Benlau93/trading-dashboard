@@ -4,6 +4,7 @@ import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 from app import app
 from apps import dashboard, portfolio, add
+from datetime import date
 import requests
 import pandas as pd
 
@@ -61,6 +62,8 @@ def load_data():
     open_position = pd.merge(open_position, tickerinfo, on="symbol")
     open_position.columns = open_position.columns.str.capitalize()
     open_position["Date"] = pd.to_datetime(open_position["Date_open"], format="%Y-%m-%d")
+    # get holdings
+    open_position["Total_holding"] = (pd.to_datetime(date.today()) - open_position["Date"]).dt.days
     open_position = open_position.rename({
         "Id":"id",
         "Total_value_sgd": "Amount (SGD)",
@@ -156,4 +159,4 @@ def export_data(n_clicks, data, closed, open_position):
 
 # start server
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True)

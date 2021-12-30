@@ -6,6 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from dash.dependencies import Input, Output, State
 from dash import dash_table
+from dash_table.Format import Format,Scheme
 from app import app
 import requests
 
@@ -206,7 +207,7 @@ def generate_transaction(data, open_position, id):
             dict(id="Price", name="Price",type="numeric",format=money),
             dict(id="Quantity", name="Quantity",type="numeric"),
             dict(id="Fees", name="Fees",type="numeric",format=money),
-            dict(id="Exchange Rate", name="Exchange Rate",type="numeric"),
+            dict(id="Exchange Rate", name="Exchange Rate",type="numeric", format=Format(precision=2,scheme=Scheme.fixed)),
             dict(id="Value", name="Value",type="numeric",format=money),
         ],
         data=df_.to_dict('records'),

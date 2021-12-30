@@ -228,7 +228,6 @@ class TransactionViews(APIView):
                     "avg_exchange_rate": data["exchange_rate"],
                     "total_value": data["value"],
                     "total_value_sgd": data["value_sgd"],
-                    "total_holding": (date.today() - date_).days,
                     "unrealised_pl": 0,
                     "unrealised_pl_sgd":0,
                     "unrealised_pl_per":0,

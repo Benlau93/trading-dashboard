@@ -43,7 +43,6 @@ class OpenPosition(models.Model):
     avg_exchange_rate = models.FloatField(blank = False, db_column="AVG_EXCHANGE_RATE")
     total_value = models.FloatField(blank = False, db_column="TOTAL_VALUE")
     total_value_sgd = models.FloatField(blank = False, db_column="TOTAL_VALUE_SGD")
-    total_holding = models.IntegerField(blank = False, db_column="HOLDING_DAY")
 
 
 class HistoricalPL(models.Model):
