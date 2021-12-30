@@ -6,7 +6,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 from dash.dependencies import Input, Output, State
 from dash import dash_table
-from dash_table.Format import Format,Scheme
+from dash.dash_table.Format import Format,Scheme
 from app import app
 import requests
 
