@@ -9,6 +9,7 @@ from dash.dependencies import Input, Output, State
 from dash import dash_table
 from app import app
 from datetime import date
+from dash.dash_table.Format import Format,Scheme
 
 # define template used
 TEMPLATE = "plotly_white"
@@ -257,7 +258,7 @@ def generate_transaction(df, id):
             dict(id="Price", name="Price",type="numeric",format=money),
             dict(id="Quantity", name="Quantity",type="numeric"),
             dict(id="Fees", name="Fees",type="numeric",format=money),
-            dict(id="Exchange Rate", name="Exchange Rate",type="numeric"),
+            dict(id="Exchange Rate", name="Exchange Rate",type="numeric", format=Format(precision=2,scheme=Scheme.fixed)),
             dict(id="Value", name="Value",type="numeric",format=money),
         ],
         data=df_.to_dict('records'),
