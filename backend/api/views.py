@@ -68,7 +68,7 @@ class TransactionViews(APIView):
         # transformation
         data["value"] = data["price"] * data["quantity"] + (-data["fees"] if data["action"]=="Sell" else data["fees"])
         data["value_sgd"] = data["value"] * data["exchange_rate"]
-        data["fess"] = data["fees"] * data["exchange_rate"]
+        data["fees"] = data["fees"] * data["exchange_rate"]
         data["id"] = data["symbol"] + "|" + date_str + "|" + data["action"]
 
         # update data
