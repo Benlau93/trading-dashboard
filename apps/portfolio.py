@@ -402,15 +402,13 @@ def update_table(id, data, open_position):
     Output(component_id="refresh-alert", component_property="className"),
     Output(component_id = "refresh-url", component_property = "href"),
     Input(component_id="refresh-button", component_property="n_clicks"),
+    Input(component_id="refresh-url", component_property="href"),
     prevent_initial_call=True,
 )
-def refresh_data(n_clicks):
+def refresh_data(n_clicks, url):
     if n_clicks != None and n_clicks >= 1:
         response = requests.get("http://127.0.0.1:8000/api/refresh")
-        if n_clicks == 1:
-            return_url = "http://127.0.0.1:8050/portfolio/refresh"
-        else:
-            return_url = "http://127.0.0.1:8050/portfolio"
+        return_url = "http://127.0.0.1:8050/portfolio/refresh" if url.endswith("portfolio") else "http://127.0.0.1:8050/portfolio"
 
         if response.status_code == 200:
             return dbc.Alert("Price successfully refreshed", color="Primary"), "alert alert-success", return_url
