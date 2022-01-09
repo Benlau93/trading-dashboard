@@ -1,6 +1,5 @@
 from django.urls import path, include
-from yfinance.ticker import Ticker
-from .views import TransactionViews, TickerViews, ClosedViews, OpenViews, HistoricalViews, RefreshViews
+from .views import TransactionViews, TickerViews, ClosedViews, OpenViews, HistoricalViews, RefreshViews, DownloadViews
 
 urlpatterns = [
     path('transaction', TransactionViews.as_view()),
@@ -8,5 +7,6 @@ urlpatterns = [
     path('closed', ClosedViews.as_view()),
     path('open', OpenViews.as_view()),
     path('historical', HistoricalViews.as_view()),
-    path('refresh', RefreshViews.as_view())
+    path('refresh', RefreshViews.as_view()),
+    path("download", DownloadViews.as_view())
 ]

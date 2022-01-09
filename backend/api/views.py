@@ -9,6 +9,16 @@ import yfinance as yf
 import numpy as np
 import pandas as pd
 
+class DownloadViews(APIView):
+
+    def post(self, request, format=None):
+        # data = request.data.dict()
+        data = request.data
+        df = yf.download(tickers=data["symbol"], start=data["start_date"], end=date.today(),interval=data["interval"])
+        df["Symbol"] = data["symbol"]
+        df = df.reset_index()
+        return Response(df.to_dict(orient="records"), status=status.HTTP_200_OK)
+
 class TickerViews(APIView):
     ticker_serializer = TickerSerializer
 

@@ -3,7 +3,7 @@ from dash import dcc
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 from app import app
-from apps import dashboard, portfolio, add
+from apps import dashboard, portfolio, add, analysis
 from datetime import date
 import requests
 import pandas as pd
@@ -13,6 +13,7 @@ navbar = dbc.NavbarSimple(
     children=[
         dbc.NavItem(dbc.NavLink("Dashboard", href="/")),
         dbc.NavItem(dbc.NavLink("Portfolio", href="/portfolio")),
+        dbc.NavItem(dbc.NavLink("Analysis", href="/analysis")),
         dbc.NavItem(dbc.NavLink("Export",id="export-button", href="/")),
         dcc.Download(id="download-dataframe-xlsx"),
 
@@ -123,6 +124,8 @@ def display_page(pathname):
         layout =  portfolio.layout
     elif pathname == "/portfolio/add":
         layout =  add.layout
+    elif pathname == "/analysis":
+        layout =  analysis.layout
     else:
         layout = dashboard.layout
 
@@ -159,4 +162,4 @@ def export_data(n_clicks, data, closed, open_position):
 
 # start server
 if __name__ == '__main__':
-    app.run_server(debug=False)
+    app.run_server(debug=True)

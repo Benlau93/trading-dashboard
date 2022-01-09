@@ -1,5 +1,6 @@
 from dash import html
 from dash import dcc
+from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
@@ -406,6 +407,7 @@ def update_table(id, data, open_position):
     prevent_initial_call=True,
 )
 def refresh_data(n_clicks, url):
+
     if n_clicks != None and n_clicks >= 1:
         response = requests.get("http://127.0.0.1:8000/api/refresh")
         return_url = "http://127.0.0.1:8050/portfolio/refresh" if url.endswith("portfolio") else "http://127.0.0.1:8050/portfolio"
@@ -414,3 +416,5 @@ def refresh_data(n_clicks, url):
             return dbc.Alert("Price successfully refreshed", color="Primary"), "alert alert-success", return_url
         else:
             return dbc.Alert("Price failed to refresh, please try again later", color="danger"), "alert alert-danger", return_url
+    else:
+        raise PreventUpdate
