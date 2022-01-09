@@ -144,13 +144,17 @@ def generate_stack_bar(df):
     df_ = df.groupby(["DATE","Action"])[["Symbol"]].count().rename({"Symbol":"No. Trades"}, axis=1).reset_index()
     df_["DATE(SORT)"] = pd.to_datetime(df_["DATE"], format="%b-%y")
     df_ = df_.sort_values(["DATE(SORT)"]).drop("DATE(SORT)", axis=1)
+    buy = df_[df_["Action"]=="Buy"].copy()
+    buy = pd.merge(df_[["DATE"]].drop_duplicates(), buy, on="DATE", how="left").fillna(0)
+    sell = df_[df_["Action"]=="Sell"].copy()
+    sell = pd.merge(df_[["DATE"]].drop_duplicates(), sell, on="DATE", how="left").fillna(0)
 
     stack_bar = go.Figure()
     stack_bar.add_trace(
-        go.Bar(x=df_[df_["Action"]=="Buy"]["DATE"], y=df_[df_["Action"]=="Buy"]["No. Trades"], name="No. of Buy Position", text=df_[df_["Action"]=="Buy"]["No. Trades"])
+        go.Bar(x=buy["DATE"], y=buy["No. Trades"], name="No. of Buy Position", text=buy["No. Trades"])
     )
     stack_bar.add_trace(
-        go.Bar(x=df_[df_["Action"]=="Sell"]["DATE"], y=df_[df_["Action"]=="Sell"]["No. Trades"], name="No. of Sell Position", text=df_[df_["Action"]=="Sell"]["No. Trades"])
+        go.Bar(x=sell["DATE"], y=sell["No. Trades"], name="No. of Sell Position", text=sell["No. Trades"])
     )
     stack_bar.update_layout(barmode='stack',
                             yaxis=dict(showgrid=False, showticklabels=False),
