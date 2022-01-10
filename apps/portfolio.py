@@ -96,7 +96,7 @@ def generate_treemap(df, value):
 
 def generate_line(df, value, ticker_list):
     VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
-    FORMAT = "%{y:$,.2f}" if value == "Absolute" else "%{y:.2%}"
+    FORMAT = "%{y:$,.0f}" if value == "Absolute" else "%{y:.0%}"
     df_ = df.copy()
 
     line_fig = go.Figure()
