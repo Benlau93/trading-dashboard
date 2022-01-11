@@ -125,9 +125,19 @@ layout = html.Div([
             dbc.Col(html.H5(children='Price Chart', className="text-center"),
                             width=6, className="mt-2")
         ], justify="center"),
+        html.Br(),
+        dbc.Row([
+            dbc.Col(html.H4( className="text-center", id="chart-title"),
+                            width=6)
+        ],align="end", justify="center"),
         dbc.Row(
             dbc.Col(dcc.Graph(id="candle"))
             ),
+        dbc.Row([
+            dbc.Col(html.H5(className="text-center", id="current-price"), width=3),
+            dbc.Col(html.H5(className="text-center", id="ath"), width=3),
+            dbc.Col(html.H5(className="text-center", id="from-ath"), width=3)
+        ], align="center" ,justify="center"),
         html.Br(),
         dbc.Row([
             dbc.Col(html.H5(children='Transactions', className="text-center"),
@@ -167,12 +177,16 @@ def generate_dropdown(position, open, closed):
 
 @app.callback([
     Output(component_id="candle", component_property="figure"),
+    Output(component_id="chart-title", component_property="children"),
+    Output(component_id="current-price", component_property="children"),
+    Output(component_id="ath", component_property="children"),
+    Output(component_id="from-ath", component_property="children"),
     Input(component_id="analysis-dropdown", component_property="value"),
     State(component_id="data-store", component_property="data")
 ])
 def update_ohlc(symbol, data):
     if data == None:
-        return None
+        return None, None, None, None
 
     data = pd.DataFrame(data)
     data = data[data["Symbol"]==symbol].copy()
@@ -186,11 +200,15 @@ def update_ohlc(symbol, data):
     }
     response = requests.post("http://127.0.0.1:8000/api/download",data=post_data)
     if response.status_code == 200:
+        name = data["Name"].iloc[0]
         df = pd.DataFrame.from_dict(response.json())
+        current_price = df.sort_values("Date").tail(1)["Close"].iloc[0]
+        ath = df["Close"].max()
+        from_ath = (current_price - ath) / ath
         ohlc_fig = generate_candle(df, data)
-        return [ohlc_fig]
+        return ohlc_fig, name , f"Current Price: ${round(current_price,4)}", f"ATH: ${round(ath,4)}", f"% from ATH: {round(from_ath*100,2)}%"
     else:
-        return None
+        return None, None, None, None
 
 
 @app.callback(
