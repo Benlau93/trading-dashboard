@@ -37,14 +37,14 @@ def generate_candle(df, data):
 
     # add 10 and 20 SMA
     df["SMA10"] = df["Close"].rolling(10).mean()
-    df["SMA20"] = df["Close"].rolling(20).mean()
+    df["SMA50"] = df["Close"].rolling(50).mean()
 
     candle_fig.add_trace(
         go.Scatter(x=df["Date"], y=df["SMA10"],line=dict(color="purple", width=2), opacity=0.4, name="SMA-10")
     )
 
     candle_fig.add_trace(
-        go.Scatter(x=df["Date"], y=df["SMA20"],line=dict(color="blue", width=2), opacity=0.4, name="SMA-20")
+        go.Scatter(x=df["Date"], y=df["SMA50"],line=dict(color="blue", width=2), opacity=0.4, name="SMA-50")
     )
 
 
