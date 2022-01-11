@@ -441,7 +441,7 @@ def update_graph(date,type, data, closed):
     bar_fig = generate_bar(closed_position_filtered)
     stack_bar = generate_stack_bar(data_filtered)
     treemap_closed_profit, treemap_closed_loss = generate_treemap(closed_position_filtered)
-    table_fig = generate_table(closed)
+    table_fig = generate_table(closed_position_filtered)
 
     return indicator_fig, trade_indicator, line_fig, bar_fig, stack_bar,treemap_closed_profit,treemap_closed_loss, table_fig
 
