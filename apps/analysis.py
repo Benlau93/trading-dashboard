@@ -121,10 +121,6 @@ layout = html.Div([
                                  className="text-center text-light bg-dark"), body=True, color="dark")
                 , className="mt-4 mb-4")
             ]),
-        dbc.Row([
-            dbc.Col(html.H5(children='Price Chart', className="text-center"),
-                            width=6, className="mt-2")
-        ], justify="center"),
         html.Br(),
         dbc.Row([
             dbc.Col(html.H4( className="text-center", id="chart-title"),
