@@ -228,6 +228,11 @@ def generate_transaction(data, open_position, id):
 
 layout = html.Div([
     dcc.Location(id='refresh-url', refresh=True),
+    dcc.Interval(
+        id='interval-component',
+        interval=900000, # 15 minutes
+        n_intervals=0
+        ),
     html.Div(id="refresh-alert",style={"font-size":"large", "font-family": "Arial, Helvetica, sans-serif","text-align":"center"}),
     dbc.Container([
         dbc.Row([
@@ -404,11 +409,12 @@ def update_table(id, data, open_position):
     Output(component_id = "refresh-url", component_property = "href"),
     Input(component_id="refresh-button", component_property="n_clicks"),
     Input(component_id="refresh-url", component_property="href"),
+    Input('interval-component', 'n_intervals'),
     prevent_initial_call=True,
 )
-def refresh_data(n_clicks, url):
+def refresh_data(n_clicks, url,n):
 
-    if n_clicks != None and n_clicks >= 1:
+    if (n_clicks != None and n_clicks >= 1) or n>=1:
         response = requests.get("http://127.0.0.1:8000/api/refresh")
         return_url = "http://127.0.0.1:8050/portfolio/refresh" if url.endswith("portfolio") else "http://127.0.0.1:8050/portfolio"
 
