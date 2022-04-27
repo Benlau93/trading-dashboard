@@ -65,6 +65,7 @@ def generate_indicator(df):
 def generate_bar(df, value):
     VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
     FORMAT = "%{y:$,.2f}" if value == "Absolute" else "%{y:.2%}"
+    print(df.columns)
     df_ = df.sort_values("Date")[["Name","Symbol","Unrealised P/L","Unrealised P/L (%)"]].copy()
 
     bar_fig = go.Figure()
@@ -106,7 +107,7 @@ def generate_line(df, value, ticker_list):
         df_ = df_.groupby("Date").sum().reset_index()
         df_["Unrealised P/L (%)"] = df_["Unrealised P/L"] / df_["Amount (SGD)"]
         line_fig.add_trace(
-            go.Scatter(x=df_["Date"], y=df_[VIEW], mode="lines+markers+text", texttemplate=FORMAT, textposition="bottom right", textfont=dict(size=10)
+            go.Scatter(x=df_["Date"], y=df_[VIEW], mode="lines+markers"
             )
         )
         line_fig.update_layout(
