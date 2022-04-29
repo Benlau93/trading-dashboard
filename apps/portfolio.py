@@ -65,7 +65,6 @@ def generate_indicator(df):
 def generate_bar(df, value):
     VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
     FORMAT = "%{y:$,.2f}" if value == "Absolute" else "%{y:.2%}"
-    print(df.columns)
     df_ = df.sort_values("Date")[["Name","Symbol","Unrealised P/L","Unrealised P/L (%)"]].copy()
 
     bar_fig = go.Figure()
