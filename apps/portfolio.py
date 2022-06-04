@@ -4,6 +4,7 @@ from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import pandas as pd
 import plotly.express as px
+from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from dash.dependencies import Input, Output, State
 from dash import dash_table
@@ -65,11 +66,11 @@ def generate_indicator(df):
 def generate_bar(df, value):
     VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
     FORMAT = "%{y:$,.2f}" if value == "Absolute" else "%{y:.2%}"
-    df_ = df.sort_values("Date")[["Name","Symbol","Unrealised P/L","Unrealised P/L (%)"]].copy()
+    df_ = df.sort_values("Type")[["Name","Type","Symbol","Unrealised P/L","Unrealised P/L (%)"]].copy()
 
     bar_fig = go.Figure()
     bar_fig.add_trace(
-        go.Bar(x=df_["Symbol"],y=df_[VIEW],texttemplate =FORMAT, textposition="inside",name=VIEW, hovertemplate="%{x}, "+FORMAT)
+        go.Bar(x=[df_["Type"].tolist(), df_["Symbol"].tolist()],y=df_[VIEW],texttemplate =FORMAT, textposition="inside",name=VIEW, hovertemplate="%{x}, "+FORMAT)
     )
 
     bar_fig.update_layout(
@@ -81,14 +82,11 @@ def generate_bar(df, value):
 
     return bar_fig
 
-def generate_treemap(df, value):
-    VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
-    df_ = df[["Type","Symbol","Name","Value","Unrealised P/L", "Unrealised P/L (%)"]].copy()
+def generate_treemap(df):
+    df_ = df[["Type","Symbol","Name","Value"]].copy()
 
-    treemap_fig = px.treemap(df_, path=[px.Constant("Positions"),"Type","Name"], values="Value", color=VIEW ,
-                                                    color_continuous_scale="RdBu",
-                                                    range_color = [df_[VIEW].min(), df_[VIEW].max()],
-                                                    hover_data = {"Name":False,"Symbol":True,"Unrealised P/L":":$,.2f","Value":":$,.2f","Unrealised P/L (%)":":.2%"}, branchvalues="total")
+    treemap_fig = px.treemap(df_, path=[px.Constant("Positions"),"Type","Name"], values="Value",
+                                                    hover_data = {"Name":False,"Symbol":True,"Value":":$,.2f"}, branchvalues="total")
     treemap_fig.update_layout(margin = dict(t=0), template=TEMPLATE)
 
 
@@ -179,6 +177,7 @@ def generate_table(df):
     )
 
     return table_fig
+
 def generate_transaction(data, open_position, id):
     open_ = open_position[["Symbol","Date_Open","Avg_exchange_rate"]].copy()
     df_ = pd.merge(data.drop("Value",axis=1), open_, on="Symbol")
@@ -226,6 +225,50 @@ def generate_transaction(data, open_position, id):
 
     return transaction_fig
 
+
+def generate_waterfall(df):
+    # generate total for each type
+    df_ = df[["Type","Symbol","Unrealised P/L","Amount (SGD)"]].rename({"Unrealised P/L":"Value"}, axis=1).sort_values(["Type"])
+    
+    # get initial capital
+    initial = df_.groupby("Type").sum()[["Amount (SGD)"]].rename({"Amount (SGD)":"Value"}, axis=1).reset_index()
+    initial["Symbol"] = "Capital"
+
+    # get final
+    final = df_.groupby("Type").tail(1)
+    final["Symbol"] = "Current Value"
+    final["Value"] = None
+ 
+
+    # combine
+    df_ = pd.concat([initial,df_, final], sort=True, ignore_index=True).sort_values(["Type"])
+    measure_map = {"Capital":"absolute",
+                    "Current Value":"total"}
+    df_["Measure"] = df_["Symbol"].map(measure_map).fillna("relative")
+    df_ = df_.sort_values(["Type","Measure"])
+
+    # generate chart
+    num_col = df_["Type"].nunique()
+    waterfall_fig = make_subplots(rows=1, cols=num_col)
+
+    for t,c in zip(df_["Type"].unique(),list(range(num_col))):
+        _ = df_[df_["Type"]==t].copy()
+        waterfall_fig.add_trace(
+            go.Waterfall(x = [_["Type"].tolist(),_["Symbol"].tolist()], y = _["Value"], measure = _["Measure"],base = 0,name=t),
+            row = 1, col = c + 1
+        )
+
+    # update layout
+    waterfall_fig.update_yaxes(showgrid=False)
+
+    waterfall_fig.update_layout(
+        showlegend=False,
+        template = TEMPLATE,
+        height = 500
+    )
+
+    return waterfall_fig
+
 layout = html.Div([
     dcc.Location(id='refresh-url', refresh=True),
     dcc.Interval(
@@ -267,12 +310,19 @@ layout = html.Div([
         dbc.Row([
             dbc.Col(html.H5(children='Position by P/L', className="text-center"),
                             width={"size":2,"offset":2}, className="mt-4"),
-            dbc.Col(html.H5(children='Position by Value', className="text-center"),
+            dbc.Col(html.H5(children='Position by Current Value', className="text-center"),
                             width={"size":2, "offset":4}, className="mt-4")
         ]),
         dbc.Row([
             dbc.Col(dcc.Graph(id="bar_open"), width=6),
             dbc.Col(dcc.Graph(id="treemap_open"), width=6)
+        ]),
+        dbc.Row([
+            dbc.Col(html.H5(children='P/L by Asset Class', className="text-center"),
+                            width=4, className="mt-4")
+        ], justify="center"),
+        dbc.Row([
+            dbc.Col(dcc.Graph(id = "waterfall_open"), width= 12)
         ]),
         dbc.Row([
             dbc.Col(html.H5(children='P/L over Time', className="text-center"),
@@ -349,6 +399,7 @@ def update_ticker_dropdown(value, open_position):
     Output(component_id="main-indicator",component_property="figure"),
     Output(component_id="bar_open",component_property="figure"),
     Output(component_id="treemap_open",component_property="figure"),
+    Output(component_id="waterfall_open",component_property="figure"),
     Output(component_id="line_open",component_property="figure"),
     Output(component_id="table-container-open",component_property="children"),
     Input(component_id="radios", component_property="value"),
@@ -370,7 +421,7 @@ def update_graph(value, type, ticker_list, open_position, historical):
 
 
     bar_fig = generate_bar(open_position, value)
-    treemap_fig = generate_treemap(open_position, value)
+    treemap_fig = generate_treemap(open_position)
 
     if type == None:
         line_fig = generate_line(historical, value,ticker_list)
@@ -379,9 +430,10 @@ def update_graph(value, type, ticker_list, open_position, historical):
 
     indicator_fig = generate_indicator(open_position)
     table_fig = generate_table(open_position)
+    waterfall_fig = generate_waterfall(open_position)
 
 
-    return indicator_fig, bar_fig, treemap_fig, line_fig, table_fig
+    return indicator_fig, bar_fig, treemap_fig, waterfall_fig , line_fig, table_fig
 
 @app.callback(
     Output(component_id="transaction-container-open", component_property="children"),
