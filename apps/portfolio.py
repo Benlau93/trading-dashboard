@@ -11,6 +11,10 @@ from dash import dash_table
 from dash.dash_table.Format import Format,Scheme
 from app import app
 import requests
+import warnings
+import numpy as np
+
+warnings.filterwarnings("ignore")
 
 # define template used
 TEMPLATE = "plotly_white"
@@ -63,34 +67,55 @@ def generate_indicator(df):
     return indicator_fig
 
 
-def generate_bar(df, value):
-    VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
-    FORMAT = "%{y:$,.2f}" if value == "Absolute" else "%{y:.2%}"
-    df_ = df.sort_values("Type")[["Name","Type","Symbol","Unrealised P/L","Unrealised P/L (%)"]].copy()
+def generate_pie(df, view, value):
+    VIEW = view
+    df_ = df.groupby(VIEW).sum()[["Value"]].reset_index().sort_values("Value")
+    df_["Value"] = df_["Value"].map(lambda x: round(x,2))
+    textinfo = "label+value" if value == "Absolute" else "label+percent"
 
+    # generate chart
+    pie_fig = go.Figure()
+
+    pie_fig.add_trace(
+        go.Pie(labels = df_[VIEW], values = df_["Value"], textinfo= textinfo, name="Current Value",
+        hole = 0.5, rotation = 35)
+    )
+
+    pie_fig.update_layout(
+        template= TEMPLATE,
+        height = 500,
+        showlegend=False
+    )
+
+    return pie_fig
+
+
+
+def generate_bar(df, view,value):
+    VIEW = view
+    FORMAT = "%{x:$,.2f}" if value == "Absolute" else "%{x:.2%}"
+    df_ = df.groupby(VIEW).sum()[["Unrealised P/L","Amount (SGD)","Value"]].reset_index().sort_values("Unrealised P/L")
+
+    if value != "Absolute":
+        df_["Unrealised P/L"] = (df_["Value"] - df_["Amount (SGD)"]) / df_["Amount (SGD)"]
+
+    df_ = df_.sort_values(["Unrealised P/L"])
+
+    # generate chart
     bar_fig = go.Figure()
     bar_fig.add_trace(
-        go.Bar(x=[df_["Type"].tolist(), df_["Symbol"].tolist()],y=df_[VIEW],texttemplate =FORMAT, textposition="inside",name=VIEW, hovertemplate="%{x}, "+FORMAT)
+        go.Bar(x=df_["Unrealised P/L"],y=df_[VIEW],texttemplate =FORMAT, textposition="inside",name="Unrealised P/L", hovertemplate="%{y}, "+FORMAT,
+        orientation="h")
     )
 
     bar_fig.update_layout(
-                        xaxis=dict(showgrid=False, position=1,tickangle=0),
-                        margin=dict(t=0),
-                        yaxis=(dict(showgrid=False,showticklabels=False,zerolinecolor="black")),
+                        xaxis=dict(showgrid=False, zerolinecolor="black", tickformat="$,.0f" if value == "Absolute" else ".0%"),
+                        yaxis=(dict(showgrid=False)),
+                        height=500,
                         template=TEMPLATE                 
     )                
 
     return bar_fig
-
-def generate_treemap(df):
-    df_ = df[["Type","Symbol","Name","Value"]].copy()
-
-    treemap_fig = px.treemap(df_, path=[px.Constant("Positions"),"Type","Name"], values="Value",
-                                                    hover_data = {"Name":False,"Symbol":True,"Value":":$,.2f"}, branchvalues="total")
-    treemap_fig.update_layout(margin = dict(t=0), template=TEMPLATE)
-
-
-    return treemap_fig
 
 
 def generate_line(df, value, ticker_list):
@@ -226,13 +251,25 @@ def generate_transaction(data, open_position, id):
     return transaction_fig
 
 
-def generate_waterfall(df):
+def generate_waterfall(df, view, value):
+    VIEW = view
+    
     # generate total for each type
     df_ = df[["Type","Symbol","Unrealised P/L","Amount (SGD)"]].rename({"Unrealised P/L":"Value"}, axis=1).sort_values(["Type"])
     
     # get initial capital
     initial = df_.groupby("Type").sum()[["Amount (SGD)"]].rename({"Amount (SGD)":"Value"}, axis=1).reset_index()
     initial["Symbol"] = "Capital"
+    
+    # get pl
+    GROUPBY = VIEW if VIEW == "Type" else ["Type","Symbol"]
+    pl = df_.groupby(GROUPBY).sum()[["Value","Amount (SGD)"]].reset_index()
+
+    if value != "Absolute":
+        initial_ = initial.rename({"Value":"Initial"}, axis=1).drop("Symbol", axis=1)
+        pl = pd.merge(initial_, pl, on = "Type")
+        initial["Value"] = 1
+        pl["Value"] = pl["Value"] / pl["Initial"]
 
     # get final
     final = df_.groupby("Type").tail(1)
@@ -241,25 +278,30 @@ def generate_waterfall(df):
  
 
     # combine
-    df_ = pd.concat([initial,df_, final], sort=True, ignore_index=True).sort_values(["Type"])
+    combined = pd.concat([initial,pl, final], sort=True, ignore_index=True).sort_values(["Type"])
     measure_map = {"Capital":"absolute",
                     "Current Value":"total"}
-    df_["Measure"] = df_["Symbol"].map(measure_map).fillna("relative")
-    df_ = df_.sort_values(["Type","Measure"])
+    combined["Measure"] = combined["Symbol"].map(measure_map).fillna("relative")
+    combined["Symbol"] = combined["Symbol"].fillna("P/L")
+    combined["Value"] = combined["Value"].map(lambda x: round(x,2))
+    combined = combined.sort_values(["Type","Measure"])
 
     # generate chart
-    num_col = df_["Type"].nunique()
+    num_col = combined["Type"].nunique() 
     waterfall_fig = make_subplots(rows=1, cols=num_col)
 
-    for t,c in zip(df_["Type"].unique(),list(range(num_col))):
-        _ = df_[df_["Type"]==t].copy()
+    for v,c in zip(combined["Type"].unique(),list(range(num_col))):
+        _ = combined[combined["Type"]==v].copy()
         waterfall_fig.add_trace(
-            go.Waterfall(x = [_["Type"].tolist(),_["Symbol"].tolist()], y = _["Value"], measure = _["Measure"],base = 0,name=t),
+            go.Waterfall(x = [_["Type"].tolist(),_["Symbol"].tolist()], y = _["Value"], measure = _["Measure"],base = 0,name=v),
             row = 1, col = c + 1
         )
 
     # update layout
-    waterfall_fig.update_yaxes(showgrid=False)
+    y_max = initial["Value"].max() # define max y value
+    FORMAT = "$,.0f" if value == "Absolute" else ".0%"
+    waterfall_fig.update_yaxes(showgrid=False, range = [0, y_max], tickformat=FORMAT)
+    
 
     waterfall_fig.update_layout(
         showlegend=False,
@@ -291,10 +333,27 @@ layout = html.Div([
                 , className="mt-4 mb-4")
         ]),
         dbc.Row([
-            dbc.Col(html.H3("Select View:"),width=3),
+            dbc.Col(html.H3("Select View:"),width={"size":3,"offset":1}),
             dbc.Col([
                 dbc.RadioItems(
-                    id="radios",
+                    id="view-radios",
+                    className="btn-group",
+                    inputClassName="btn-check",
+                    labelClassName="btn btn-outline-primary",
+                    labelCheckedClassName="active",
+                    options=[
+                        {"label": "Asset Class", "value": "Type"},
+                        {"label": "Symbol", "value": "Symbol"}
+                    ],
+                    value="Type")
+            ], width=4)
+        ], align="center", justify="center"),
+        dbc.Row([html.Div(style={"margin-top":20})]),
+        dbc.Row([
+            dbc.Col(html.H3("Select Value:"),width=3),
+            dbc.Col([
+                dbc.RadioItems(
+                    id="value-radios",
                     className="btn-group",
                     inputClassName="btn-check",
                     labelClassName="btn btn-outline-info",
@@ -306,16 +365,16 @@ layout = html.Div([
                     value="Absolute")
             ], width=3)
         ], align="center", justify="center"),
-
+        dbc.Row([html.Div(style={"margin-top":20})]),
         dbc.Row([
-            dbc.Col(html.H5(children='Position by P/L', className="text-center"),
-                            width={"size":2,"offset":2}, className="mt-4"),
             dbc.Col(html.H5(children='Position by Current Value', className="text-center"),
+                            width={"size":2,"offset":2}, className="mt-4"),
+            dbc.Col(html.H5(children='Position by P/L', className="text-center"),
                             width={"size":2, "offset":4}, className="mt-4")
         ]),
         dbc.Row([
-            dbc.Col(dcc.Graph(id="bar_open"), width=6),
-            dbc.Col(dcc.Graph(id="treemap_open"), width=6)
+            dbc.Col(dcc.Graph(id="pie_open"), width=6),
+            dbc.Col(dcc.Graph(id="bar_open"), width=6)
         ]),
         dbc.Row([
             dbc.Col(html.H5(children='P/L by Asset Class', className="text-center"),
@@ -324,6 +383,7 @@ layout = html.Div([
         dbc.Row([
             dbc.Col(dcc.Graph(id = "waterfall_open"), width= 12)
         ]),
+        dbc.Row([html.Div(style={"margin-top":20})]),
         dbc.Row([
             dbc.Col(html.H5(children='P/L over Time', className="text-center"),
                             width=4, className="mt-4")
@@ -397,18 +457,19 @@ def update_ticker_dropdown(value, open_position):
 
 @app.callback(
     Output(component_id="main-indicator",component_property="figure"),
+    Output(component_id="pie_open",component_property="figure"),
     Output(component_id="bar_open",component_property="figure"),
-    Output(component_id="treemap_open",component_property="figure"),
     Output(component_id="waterfall_open",component_property="figure"),
     Output(component_id="line_open",component_property="figure"),
     Output(component_id="table-container-open",component_property="children"),
-    Input(component_id="radios", component_property="value"),
+    Input(component_id="view-radios", component_property="value"),
+    Input(component_id="value-radios", component_property="value"),
     Input(component_id="type-dropdown-open", component_property="value"),
     Input(component_id="symbol-dropdown",component_property="value"),
     State(component_id="open-store", component_property="data"),
     State(component_id="historical-store", component_property="data"),
 )
-def update_graph(value, type, ticker_list, open_position, historical):
+def update_graph(view, value, type, ticker_list, open_position, historical):
     if open_position == None or historical == None:
         return None, None, None, None, None
 
@@ -420,8 +481,9 @@ def update_graph(value, type, ticker_list, open_position, historical):
     historical["Date"] = pd.to_datetime(historical["Date"])
 
 
-    bar_fig = generate_bar(open_position, value)
-    treemap_fig = generate_treemap(open_position)
+    bar_fig = generate_bar(open_position, view, value)
+    pie_fig = generate_pie(open_position, view, value)
+    waterfall_fig = generate_waterfall(open_position, view, value)
 
     if type == None:
         line_fig = generate_line(historical, value,ticker_list)
@@ -430,10 +492,10 @@ def update_graph(value, type, ticker_list, open_position, historical):
 
     indicator_fig = generate_indicator(open_position)
     table_fig = generate_table(open_position)
-    waterfall_fig = generate_waterfall(open_position)
+    
 
 
-    return indicator_fig, bar_fig, treemap_fig, waterfall_fig , line_fig, table_fig
+    return indicator_fig ,pie_fig ,bar_fig, waterfall_fig, line_fig, table_fig
 
 @app.callback(
     Output(component_id="transaction-container-open", component_property="children"),
