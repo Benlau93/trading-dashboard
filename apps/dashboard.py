@@ -98,12 +98,15 @@ def generate_line(df):
     df_ = df_.sort_values(["DATE(SORT)"]).drop("DATE(SORT)", axis=1)
     df_["Cumulative P/L"] = df_["P/L"].cumsum()
 
+    # define bar color
+    bar_colors = ["crimson" for pl in df_["P/L"].values if pl >0 else "rgb(55, 83, 109)" ]
+
     line_fig = make_subplots(specs=[[{"secondary_y": True}]])
     line_fig.add_trace(
         go.Scatter(x=df_["DATE"], y=df_["Cumulative P/L"], name="Cumulative P/L",mode="lines+markers+text", texttemplate="%{y:$,.0f}", textposition="bottom right")
     )
     line_fig.add_trace(
-        go.Scatter(x=df_["DATE"], y=df_["P/L"], name="P/L", mode="lines+markers+text",texttemplate="%{y:$,.0f}",textposition="top left",line=dict(dash="dash")),
+        go.Bar(x=df_["DATE"], y=df_["P/L"], name="P/L",texttemplate="%{y:$,.0f}",textposition="inside", marker_color = bar_colors),
         secondary_y=True
     )
 
@@ -113,8 +116,8 @@ def generate_line(df):
                             margin=dict(t=0),
                             template=TEMPLATE
     )
-    line_fig.update_yaxes(title="Cumulative P/L",secondary_y=False,showgrid=True, zeroline=True,tickformat="$,.0f")
-    line_fig.update_yaxes(title="P/L",secondary_y=True, showgrid=False, zeroline=False,tickformat="$,.0f")
+    line_fig.update_yaxes(title="Cumulative P/L",secondary_y=False,tickformat="$,.0f")
+    line_fig.update_yaxes(title="P/L",secondary_y=True, showgrid=False, zeroline=True,tickformat="$,.0f")
 
     return line_fig
 
@@ -131,7 +134,7 @@ def generate_bar(df):
     )
     bar_fig.update_layout(
                         xaxis=dict(showgrid=False, showticklabels=False),
-                        yaxis=dict(showgrid=False),
+                        yaxis=dict(showgrid=False, zerolinecolor="black"),
                         margin=dict(t=0),
                         template=TEMPLATE                 
     )
@@ -167,27 +170,27 @@ def generate_stack_bar(df):
 
 
 # P/L by name
-def generate_treemap(df):
-    df_ = df.groupby(["Type","Name"])[["P/L (SGD)","P/L (%)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
+# def generate_treemap(df):
+#     df_ = df.groupby(["Type","Name"])[["P/L (SGD)","P/L (%)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
 
-    df_profit = df_[df_["P/L"]>=0].rename({"P/L":"Profit","P/L (%)":"Profit (%)"}, axis=1)
-    df_loss = df_[df_["P/L"]<0].rename({"P/L":"Loss","P/L (%)":"Loss (%)"}, axis=1)
-    df_loss["Loss"] = df_loss["Loss"].map(lambda x: abs(x))
-    df_loss["Loss (%)"] = df_loss["Loss (%)"].map(lambda x: abs(x))
+#     df_profit = df_[df_["P/L"]>=0].rename({"P/L":"Profit","P/L (%)":"Profit (%)"}, axis=1)
+#     df_loss = df_[df_["P/L"]<0].rename({"P/L":"Loss","P/L (%)":"Loss (%)"}, axis=1)
+#     df_loss["Loss"] = df_loss["Loss"].map(lambda x: abs(x))
+#     df_loss["Loss (%)"] = df_loss["Loss (%)"].map(lambda x: abs(x))
 
-    treemap_closed_profit = px.treemap(df_profit, path=[px.Constant("Asset Types"),"Type","Name"], values="Profit", color="Profit (%)" ,
-                                                    color_continuous_scale="RdBu",
-                                                    range_color = [df_profit["Profit (%)"].min(), df_profit["Profit (%)"].max()],
-                                                    hover_data = {"Name":True,"Profit":":$,.0f","Profit (%)":":.0%"},branchvalues="total")
-    treemap_closed_profit.update_layout(margin = dict(t=0), template=TEMPLATE)
+#     treemap_closed_profit = px.treemap(df_profit, path=[px.Constant("Asset Types"),"Type","Name"], values="Profit", color="Profit (%)" ,
+#                                                     color_continuous_scale="RdBu",
+#                                                     range_color = [df_profit["Profit (%)"].min(), df_profit["Profit (%)"].max()],
+#                                                     hover_data = {"Name":True,"Profit":":$,.0f","Profit (%)":":.0%"},branchvalues="total")
+#     treemap_closed_profit.update_layout(margin = dict(t=0), template=TEMPLATE)
 
-    treemap_closed_loss = px.treemap(df_loss, path=[px.Constant("Asset Types"),"Type","Name"], values="Loss", color="Loss (%)" ,
-                                                    color_continuous_scale="RdBu_r",
-                                                    range_color = [df_loss["Loss (%)"].min(), df_loss["Loss (%)"].max()],
-                                                    hover_data = {"Name":True,"Loss":":$,.0f","Loss (%)":":.0%"},branchvalues="total")
-    treemap_closed_loss.update_layout(margin = dict(t=0), template=TEMPLATE)
+#     treemap_closed_loss = px.treemap(df_loss, path=[px.Constant("Asset Types"),"Type","Name"], values="Loss", color="Loss (%)" ,
+#                                                     color_continuous_scale="RdBu_r",
+#                                                     range_color = [df_loss["Loss (%)"].min(), df_loss["Loss (%)"].max()],
+#                                                     hover_data = {"Name":True,"Loss":":$,.0f","Loss (%)":":.0%"},branchvalues="total")
+#     treemap_closed_loss.update_layout(margin = dict(t=0), template=TEMPLATE)
 
-    return treemap_closed_profit, treemap_closed_loss
+#     return treemap_closed_profit, treemap_closed_loss
 
 
 def generate_table(df):
@@ -309,6 +312,22 @@ layout = html.Div([
                                  className="text-center text-light bg-dark"), body=True, color="dark")
                 , className="mt-4 mb-4")
             ]),
+            dbc.Row([
+            dbc.Col(html.H3("Select View:"),width={"size":3,"offset":1}),
+            dbc.Col([
+                dbc.RadioItems(
+                    id="sym-radios",
+                    className="btn-group",
+                    inputClassName="btn-check",
+                    labelClassName="btn btn-outline-primary",
+                    labelCheckedClassName="active",
+                    options=[
+                        {"label": "Asset Class", "value": "Type"},
+                        {"label": "Symbol", "value": "Symbol"}
+                    ],
+                    value="Type")
+            ], width=4)
+        ], align="center", justify="center"),
             dbc.Row([
                 dbc.Col(
                     [dcc.Graph(id="trade-indicator")], width={"size": 10, "offset": 1})]),
