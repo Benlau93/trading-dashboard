@@ -99,25 +99,26 @@ def generate_line(df):
     df_["Cumulative P/L"] = df_["P/L"].cumsum()
 
     # define bar color
-    bar_colors = ["crimson" for pl in df_["P/L"].values if pl >0 else "rgb(55, 83, 109)" ]
+    bar_colors = ["crimson" if pl <0 else "#2E8B57" for pl in df_["P/L"].values]
 
-    line_fig = make_subplots(specs=[[{"secondary_y": True}]])
+    # line_fig = make_subplots(specs=[[{"secondary_y": True}]])
+    line_fig = go.Figure()
     line_fig.add_trace(
         go.Scatter(x=df_["DATE"], y=df_["Cumulative P/L"], name="Cumulative P/L",mode="lines+markers+text", texttemplate="%{y:$,.0f}", textposition="bottom right")
     )
     line_fig.add_trace(
-        go.Bar(x=df_["DATE"], y=df_["P/L"], name="P/L",texttemplate="%{y:$,.0f}",textposition="inside", marker_color = bar_colors),
-        secondary_y=True
+        go.Bar(x=df_["DATE"], y=df_["P/L"], name="P/L",texttemplate="%{y:$,.0f}",textposition="inside", marker_color = bar_colors, opacity=0.5)
     )
 
     line_fig.update_layout(
                             xaxis = dict(showgrid=False),
                             legend=dict(x=0.05,y=0.9),
                             margin=dict(t=0),
+                            height=800,
                             template=TEMPLATE
     )
-    line_fig.update_yaxes(title="Cumulative P/L",secondary_y=False,tickformat="$,.0f")
-    line_fig.update_yaxes(title="P/L",secondary_y=True, showgrid=False, zeroline=True,tickformat="$,.0f")
+    line_fig.update_yaxes(title="Cumulative P/L",rangemode="tozero",tickformat="$,.0f", zeroline=True, zerolinecolor="black")
+    # line_fig.update_yaxes(title="P/L",rangemode="tozero",secondary_y=True, showgrid=False, zeroline=True,tickformat="$,.0f")
 
     return line_fig
 
@@ -313,7 +314,9 @@ layout = html.Div([
                 , className="mt-4 mb-4")
             ]),
             dbc.Row([
-            dbc.Col(html.H3("Select View:"),width={"size":3,"offset":1}),
+                dbc.Col([dcc.Graph(id="trade-indicator")], width={"size": 10, "offset": 1})]),
+            dbc.Row([
+                dbc.Col(html.H3("Select View:"),width={"size":3,"offset":1}),
             dbc.Col([
                 dbc.RadioItems(
                     id="sym-radios",
@@ -328,9 +331,7 @@ layout = html.Div([
                     value="Type")
             ], width=4)
         ], align="center", justify="center"),
-            dbc.Row([
-                dbc.Col(
-                    [dcc.Graph(id="trade-indicator")], width={"size": 10, "offset": 1})]),
+
             dbc.Row([
                 dbc.Col(html.H5(children='P/L by Asset Types', className="text-center"),
                                 width=4, className="mt-4"),
@@ -345,10 +346,10 @@ layout = html.Div([
                             width=4, className="mt-4"),
             dbc.Col(html.H5(children='P/L by Name (Loss)', className="text-center"), width=8, className="mt-4"),
             ]),
-            dbc.Row([
-                dbc.Col([dcc.Graph(id="treemap-closed-profit")], width=6),
-                dbc.Col([dcc.Graph(id="treemap-closed-loss")], width=6)
-            ]),
+            # dbc.Row([
+            #     dbc.Col([dcc.Graph(id="treemap-closed-profit")], width=6),
+            #     dbc.Col([dcc.Graph(id="treemap-closed-loss")], width=6)
+            # ]),
             dbc.Row([
                 dbc.Col(dbc.Card(html.H3(children='Tables',
                                  className="text-center text-light bg-dark"), body=True, color="dark")
@@ -417,8 +418,8 @@ def update_type_dropdown(date, closed):
     Output(component_id="line", component_property="figure"),
     Output(component_id="bar", component_property="figure"),
     Output(component_id="stacked_bar", component_property="figure"),
-    Output(component_id="treemap-closed-profit", component_property="figure"),
-    Output(component_id="treemap-closed-loss", component_property="figure"),
+    # Output(component_id="treemap-closed-profit", component_property="figure"),
+    # Output(component_id="treemap-closed-loss", component_property="figure"),
     Output(component_id="table-container", component_property="children"),
     Input(component_id="date-dropdown", component_property="value"),
     Input(component_id="type-dropdown", component_property="value"),
@@ -459,10 +460,10 @@ def update_graph(date,type, data, closed):
     line_fig = generate_line(closed_position_filtered)
     bar_fig = generate_bar(closed_position_filtered)
     stack_bar = generate_stack_bar(data_filtered)
-    treemap_closed_profit, treemap_closed_loss = generate_treemap(closed_position_filtered)
+    # treemap_closed_profit, treemap_closed_loss = generate_treemap(closed_position_filtered)
     table_fig = generate_table(closed_position_filtered)
 
-    return indicator_fig, trade_indicator, line_fig, bar_fig, stack_bar,treemap_closed_profit,treemap_closed_loss, table_fig
+    return indicator_fig, trade_indicator, line_fig, bar_fig, stack_bar, table_fig
 
 
 @app.callback(
