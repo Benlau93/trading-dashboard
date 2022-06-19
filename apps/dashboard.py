@@ -93,7 +93,10 @@ def generate_trade_indicator(df):
 # culmulative p/L over time & P/L per month
 
 def generate_line(df):
-    df_ = df.groupby("DATE")[["P/L (SGD)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
+
+    # P/L
+    df_ = df.groupby("DATE")[["P/L (SGD)"]].agg(["sum","count"]).rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
+    df_.columns = ["DATE","P/L","Transaction"]
     df_["DATE(SORT)"] = pd.to_datetime(df_["DATE"], format="%b-%y")
     df_ = df_.sort_values(["DATE(SORT)"]).drop("DATE(SORT)", axis=1)
     df_["Cumulative P/L"] = df_["P/L"].cumsum()
@@ -101,23 +104,34 @@ def generate_line(df):
     # define bar color
     bar_colors = ["crimson" if pl <0 else "#2E8B57" for pl in df_["P/L"].values]
 
-    line_fig = go.Figure()
+    # line_fig = go.Figure()
+    line_fig = make_subplots(rows=2, cols = 1, row_heights=[0.8,0.2])
+    
     line_fig.add_trace(
-        go.Scatter(x=df_["DATE"], y=df_["Cumulative P/L"], name="Cumulative P/L",mode="lines+markers+text", texttemplate="%{y:$,.0f}", textposition="bottom right")
+        go.Scatter(x=df_["DATE"], y=df_["Cumulative P/L"], name="Cumulative P/L",mode="lines+markers+text", texttemplate="%{y:$,.0f}", textposition="bottom right"),
+        row = 1, col=1
     )
     line_fig.add_trace(
-        go.Bar(x=df_["DATE"], y=df_["P/L"], name="P/L",texttemplate="%{y:$,.0f}",textposition="inside", marker_color = bar_colors, opacity=0.5)
+        go.Bar(x=df_["DATE"], y=df_["P/L"], name="P/L",texttemplate="%{y:$,.0f}",textposition="inside", marker_color = bar_colors, opacity=0.5),
+        row=1, col=1
     )
+
+    line_fig.add_trace(
+        go.Bar(x = df_["DATE"], y=df_["Transaction"], name="No. Transaction", texttemplate="%{y}",textposition="inside", marker_color ="rgb(55, 83, 109)", opacity=0.8),
+        row=2, col=1
+    )
+
+    line_fig.update_yaxes(row=1,col=1,title="P/L",rangemode="tozero",tickformat="$,.0f", zeroline=True, zerolinecolor="black")
+    line_fig.update_yaxes(row=2, col=1, title="No. Transaction", rangemode="tozero", showgrid=False)
+    line_fig.update_xaxes(row=2, col=1, showgrid=False, visible=False)
 
     line_fig.update_layout(
                             xaxis = dict(showgrid=False),
                             legend=dict(x=0.05,y=0.9),
                             margin=dict(t=0),
-                            height=800,
+                            height=1000,
                             template=TEMPLATE
     )
-    line_fig.update_yaxes(title="Cumulative P/L",rangemode="tozero",tickformat="$,.0f", zeroline=True, zerolinecolor="black")
-
     return line_fig
 
 
