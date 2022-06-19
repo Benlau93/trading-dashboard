@@ -488,7 +488,7 @@ def update_type_dropdown(date, closed):
 )
 def update_graph(date,type, data, closed):
     if data == None or closed == None:
-        return None, None, None, None, None, None, None, None
+        return None, None, None, None, None, None, None, None, None, None
 
     data = pd.DataFrame(data)
     data["Date"] = pd.to_datetime(data["Date"])
