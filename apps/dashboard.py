@@ -156,6 +156,21 @@ def generate_bar(df, type):
 
     return bar_fig
 
+def generate_box(df):
+
+    df["Profit/Loss"] = df["P/L (SGD)"].map(lambda x: "Profit" if x>=0 else "Loss")
+
+    box_plot = px.box(df, x="Type", y = "Holding (days)", color="Profit/Loss")
+
+    box_plot.update_layout(
+        xaxis=dict(showgrid=False, title=None),
+        yaxis = dict(showgrid=False, rangemode="tozero"),
+        template = TEMPLATE,
+        height = 500
+    )
+
+    return box_plot
+
 def generate_pie(df, type):
     GROUP = "Symbol" if type != None else "Type"
     df_ = df.groupby(GROUP)[["P/L (SGD)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
@@ -339,11 +354,11 @@ layout = html.Div([
             dbc.Row([
                 dbc.Col(html.H5(children='P/L by Asset Types', className="text-center"),
                                 width=4, className="mt-4"),
-                dbc.Col(html.H5(children='No. of Trade by Months', className="text-center"), width=8, className="mt-4"),
+                dbc.Col(html.H5(children='Holding days by Type & P/L', className="text-center"), width=8, className="mt-4"),
             ]),
             dbc.Row([
                 dbc.Col(dcc.Graph(id="bar"), width=6),
-                dbc.Col(dcc.Graph(id="pie"), width=6)
+                dbc.Col(dcc.Graph(id="box"), width=6)
             ],),
             dbc.Row([
             dbc.Col(html.H5(children='P/L by Name (Profit)', className="text-center"),
@@ -421,7 +436,7 @@ def update_type_dropdown(date, closed):
     Output(component_id="trade-indicator",component_property="figure"),
     Output(component_id="line", component_property="figure"),
     Output(component_id="bar", component_property="figure"),
-    Output(component_id="pie", component_property="figure"),
+    Output(component_id="box", component_property="figure"),
     Output(component_id="treemap-closed-profit", component_property="figure"),
     Output(component_id="treemap-closed-loss", component_property="figure"),
     Output(component_id="table-container", component_property="children"),
@@ -463,12 +478,13 @@ def update_graph(date,type, data, closed):
     trade_indicator = generate_trade_indicator(closed_position_filtered)
     line_fig = generate_line(closed_position_filtered)
     bar_fig = generate_bar(closed_position_filtered, type)
-    pie_fig = generate_pie(closed_position_filtered, type)
+    # pie_fig = generate_pie(closed_position_filtered, type)
     # stack_bar = generate_stack_bar(data_filtered)
+    box_fig = generate_box(closed_position_filtered)
     treemap_closed_profit, treemap_closed_loss = generate_treemap(closed_position_filtered)
     table_fig = generate_table(closed_position_filtered)
 
-    return indicator_fig, trade_indicator, line_fig, bar_fig,pie_fig, treemap_closed_profit,treemap_closed_loss, table_fig
+    return indicator_fig, trade_indicator, line_fig, bar_fig,box_fig, treemap_closed_profit,treemap_closed_loss, table_fig
 
 
 @app.callback(
