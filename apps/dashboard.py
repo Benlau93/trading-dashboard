@@ -137,49 +137,45 @@ def generate_line(df):
 
 # P/L by quotetype
 
-def generate_bar(df):
-    df_ = df.groupby("Type")[["P/L (SGD)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
+def generate_bar(df, type):
+    GROUP = "Symbol" if type != None else "Type"
+    df_ = df.groupby(GROUP)[["P/L (SGD)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
     df_ = df_.sort_values(["P/L"])
 
     bar_fig = go.Figure()
     bar_fig.add_trace(
-        go.Bar(x=df_["P/L"],y=df_["Type"], orientation="h", texttemplate="%{x:$,.0f}", textposition="inside", hovertemplate = "%{y}, %{x:$,.0f}", name="P/L")
+        go.Bar(x=df_["P/L"],y=df_[GROUP], orientation="h", texttemplate="%{x:$,.0f}", textposition="inside", hovertemplate = "%{y}, %{x:$,.0f}", name="P/L")
     )
     bar_fig.update_layout(
                         xaxis=dict(showgrid=False, showticklabels=False),
                         yaxis=dict(showgrid=False, zerolinecolor="black"),
                         margin=dict(t=0),
+                        height=500,
                         template=TEMPLATE                 
     )
 
     return bar_fig
 
-def generate_stack_bar(df):
+def generate_pie(df, type):
+    GROUP = "Symbol" if type != None else "Type"
+    df_ = df.groupby(GROUP)[["P/L (SGD)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
 
-    # no. of trade by type
-    df_ = df.groupby(["DATE","Action"])[["Symbol"]].count().rename({"Symbol":"No. Trades"}, axis=1).reset_index()
-    df_["DATE(SORT)"] = pd.to_datetime(df_["DATE"], format="%b-%y")
-    df_ = df_.sort_values(["DATE(SORT)"]).drop("DATE(SORT)", axis=1)
-    buy = df_[df_["Action"]=="Buy"].copy()
-    buy = pd.merge(df_[["DATE"]].drop_duplicates(), buy, on="DATE", how="left").fillna(0)
-    sell = df_[df_["Action"]=="Sell"].copy()
-    sell = pd.merge(df_[["DATE"]].drop_duplicates(), sell, on="DATE", how="left").fillna(0)
+    # generate chart
+    pie_fig = go.Figure()
 
-    stack_bar = go.Figure()
-    stack_bar.add_trace(
-        go.Bar(x=buy["DATE"], y=buy["No. Trades"], name="No. of Buy Position", text=buy["No. Trades"])
-    )
-    stack_bar.add_trace(
-        go.Bar(x=sell["DATE"], y=sell["No. Trades"], name="No. of Sell Position", text=sell["No. Trades"])
-    )
-    stack_bar.update_layout(barmode='stack',
-                            yaxis=dict(showgrid=False, showticklabels=False),
-                            legend=dict(x=0.02,y=0.95),
-                            margin=dict(t=0),
-                            template=TEMPLATE
+    pie_fig.add_trace(
+        go.Pie(labels = df_[GROUP], values = df_["P/L"], textinfo= "label+percent", name="P/L",
+        hole = 0.5, rotation = 35)
     )
 
-    return stack_bar
+    pie_fig.update_layout(
+        template= TEMPLATE,
+        height = 500,
+        showlegend=False
+    )
+
+    return pie_fig
+
 
 
 # P/L by name
@@ -188,25 +184,33 @@ def generate_treemap(df):
 
     # handle profit
     df_profit = df_[df_["P/L"]>=0].rename({"P/L":"Profit","P/L (%)":"Profit (%)"}, axis=1)
-    df_profit["PROFIT_TEXT"] = df_profit.apply(lambda row: "$" + str(round(row["Profit"])) +", "+ str(round(row["Profit (%)"]*100)) + "%", axis=1)
-    
-    # handle loss
-    df_loss = df_[df_["P/L"]<0].rename({"P/L":"Loss","P/L (%)":"Loss (%)"}, axis=1)
-    df_loss["Loss"] = df_loss["Loss"].map(lambda x: abs(x))
-    df_loss["Loss (%)"] = df_loss["Loss (%)"].map(lambda x: abs(x))
-    df_loss["LOSS_TEXT"] = df_loss.apply(lambda row: "-$" + str(round(row["Loss"])) +", -"+ str(round(row["Loss (%)"]*100)) + "%", axis=1)
-
-    treemap_closed_profit = px.treemap(df_profit, path=[px.Constant("Asset Types"),"Type","Name","PROFIT_TEXT"], values="Profit", color="Profit (%)" ,
+    if len(df_profit) == 0:
+        treemap_closed_profit = go.Figure()
+    else:
+        df_profit["PROFIT_TEXT"] = df_profit.apply(lambda row: "$" + str(round(row["Profit"])) +", "+ str(round(row["Profit (%)"]*100)) + "%", axis=1)
+        treemap_closed_profit = px.treemap(df_profit, path=[px.Constant("Asset Types"),"Type","Name","PROFIT_TEXT"], values="Profit", color="Profit (%)" ,
                                                     color_continuous_scale="RdBu",
                                                     range_color = [df_profit["Profit (%)"].min(), df_profit["Profit (%)"].max()],
                                                     hover_data = {"Name":True,"Profit":":$,.02f","Profit (%)":":.01%"},branchvalues="total")
-    treemap_closed_profit.update_layout(margin = dict(t=0), template=TEMPLATE)
+        treemap_closed_profit.update_layout(margin = dict(t=0), template=TEMPLATE)
 
-    treemap_closed_loss = px.treemap(df_loss, path=[px.Constant("Asset Types"),"Type","Name","LOSS_TEXT"], values="Loss", color="Loss (%)" ,
-                                                    color_continuous_scale="RdBu_r",
-                                                    range_color = [df_loss["Loss (%)"].min(), df_loss["Loss (%)"].max()],
-                                                    hover_data = {"Name":True,"Loss":":$,.0f","Loss (%)":":.0%"},branchvalues="total")
-    treemap_closed_loss.update_layout(margin = dict(t=0), template=TEMPLATE)
+    
+    # handle loss
+    df_loss = df_[df_["P/L"]<0].rename({"P/L":"Loss","P/L (%)":"Loss (%)"}, axis=1)
+    if len(df_loss) == 0:
+        treemap_closed_loss = go.Figure()
+    else:
+        df_loss["Loss"] = df_loss["Loss"].map(lambda x: abs(x))
+        df_loss["Loss (%)"] = df_loss["Loss (%)"].map(lambda x: abs(x))
+        df_loss["LOSS_TEXT"] = df_loss.apply(lambda row: "-$" + str(round(row["Loss"])) +", -"+ str(round(row["Loss (%)"]*100)) + "%", axis=1)
+
+
+
+        treemap_closed_loss = px.treemap(df_loss, path=[px.Constant("Asset Types"),"Type","Name","LOSS_TEXT"], values="Loss", color="Loss (%)" ,
+                                                        color_continuous_scale="RdBu_r",
+                                                        range_color = [df_loss["Loss (%)"].min(), df_loss["Loss (%)"].max()],
+                                                        hover_data = {"Name":True,"Loss":":$,.0f","Loss (%)":":.0%"},branchvalues="total")
+        treemap_closed_loss.update_layout(margin = dict(t=0), template=TEMPLATE)
 
     return treemap_closed_profit, treemap_closed_loss
 
@@ -337,10 +341,10 @@ layout = html.Div([
                                 width=4, className="mt-4"),
                 dbc.Col(html.H5(children='No. of Trade by Months', className="text-center"), width=8, className="mt-4"),
             ]),
-            # dbc.Row([
+            dbc.Row([
                 dbc.Col(dcc.Graph(id="bar"), width=6),
-            #     dbc.Col(dcc.Graph(id="stacked_bar"), width=6)
-            # ],),
+                dbc.Col(dcc.Graph(id="pie"), width=6)
+            ],),
             dbc.Row([
             dbc.Col(html.H5(children='P/L by Name (Profit)', className="text-center"),
                             width=4, className="mt-4"),
@@ -417,7 +421,7 @@ def update_type_dropdown(date, closed):
     Output(component_id="trade-indicator",component_property="figure"),
     Output(component_id="line", component_property="figure"),
     Output(component_id="bar", component_property="figure"),
-    # Output(component_id="stacked_bar", component_property="figure"),
+    Output(component_id="pie", component_property="figure"),
     Output(component_id="treemap-closed-profit", component_property="figure"),
     Output(component_id="treemap-closed-loss", component_property="figure"),
     Output(component_id="table-container", component_property="children"),
@@ -435,7 +439,7 @@ def update_graph(date,type, data, closed):
     closed = pd.DataFrame(closed)
     for dat in ["Date_Open","Date_Close","Date"]:
         closed[dat] = pd.to_datetime(closed[dat])
-    
+
     if date == None and type == None:
         data_filtered = data.copy()
         closed_position_filtered = closed.copy()
@@ -458,12 +462,13 @@ def update_graph(date,type, data, closed):
     indicator_fig = generate_indicator(closed_position_filtered)
     trade_indicator = generate_trade_indicator(closed_position_filtered)
     line_fig = generate_line(closed_position_filtered)
-    bar_fig = generate_bar(closed_position_filtered)
+    bar_fig = generate_bar(closed_position_filtered, type)
+    pie_fig = generate_pie(closed_position_filtered, type)
     # stack_bar = generate_stack_bar(data_filtered)
     treemap_closed_profit, treemap_closed_loss = generate_treemap(closed_position_filtered)
     table_fig = generate_table(closed_position_filtered)
 
-    return indicator_fig, trade_indicator, line_fig, bar_fig,treemap_closed_profit,treemap_closed_loss, table_fig
+    return indicator_fig, trade_indicator, line_fig, bar_fig,pie_fig, treemap_closed_profit,treemap_closed_loss, table_fig
 
 
 @app.callback(
