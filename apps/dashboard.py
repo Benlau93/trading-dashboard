@@ -57,10 +57,10 @@ def generate_trade_indicator(df):
     trade_kpi = df[["P/L (SGD)","P/L (%)"]].copy()
     trade_kpi["Win"] = df["P/L (SGD)"].map(lambda x: True if x>=0 else False)
     win_rate = trade_kpi["Win"].mean()
-    avg_pl_win = trade_kpi[trade_kpi["Win"]]["P/L (%)"].mean()
-    median_pl_win = trade_kpi[trade_kpi["Win"]]["P/L (%)"].median()
-    avg_pl_loss = trade_kpi[~trade_kpi["Win"]]["P/L (%)"].mean()
-    max_pl_loss = trade_kpi[~trade_kpi["Win"]]["P/L (%)"].min()
+    avg_pl_win_per = trade_kpi[trade_kpi["Win"]]["P/L (%)"].mean()
+    avg_pl_win = trade_kpi[trade_kpi["Win"]]["P/L (SGD)"].mean()
+    avg_pl_loss_per = trade_kpi[~trade_kpi["Win"]]["P/L (%)"].mean()
+    avg_pl_loss = trade_kpi[~trade_kpi["Win"]]["P/L (SGD)"].mean()
 
     trade_indicator = go.Figure()
     trade_indicator.add_trace(
@@ -68,16 +68,16 @@ def generate_trade_indicator(df):
         gauge={"axis":{"visible":False,"range":[0,1]}}, domain = {'x': [0, 0.33], 'y': [0.2, 0.8]})
     )
     trade_indicator.add_trace(
-        go.Indicator(mode="number",value=avg_pl_win, title="Avg Win P/L (%)", number = dict(valueformat=".0%"), domain = {'x': [0.33, 0.66], 'y': [0.5, 1]})
+        go.Indicator(mode="number",value=avg_pl_win_per, title="Avg Win P/L (%)", number = dict(valueformat=".0%"), domain = {'x': [0.33, 0.66], 'y': [0.5, 1]})
     )
     trade_indicator.add_trace(
-        go.Indicator(mode="number",value=median_pl_win, title="Median Win P/L (%)", number = dict(valueformat=".0%"), domain = {'x': [0.66, 1], 'y': [0.5, 1]})
+        go.Indicator(mode="number",value=avg_pl_win, title="Avg Win P/L", number = dict(valueformat="$,.0f"), domain = {'x': [0.66, 1], 'y': [0.5, 1]})
     )
     trade_indicator.add_trace(
-        go.Indicator(mode="number",value=avg_pl_loss, title="Avg Loss P/L (%)", number = dict(valueformat=".0%"), domain = {'x': [0.33, 0.66], 'y': [0, 0.5]})
+        go.Indicator(mode="number",value=avg_pl_loss_per, title="Avg Loss P/L (%)", number = dict(valueformat=".0%"), domain = {'x': [0.33, 0.66], 'y': [0, 0.5]})
     )
     trade_indicator.add_trace(
-        go.Indicator(mode="number",value=max_pl_loss, title="Max Loss P/L (%)", number = dict(valueformat=".0%"), domain = {'x': [0.66, 1], 'y': [0, 0.5]})
+        go.Indicator(mode="number",value=avg_pl_loss, title="Avg Loss P/L", number = dict(valueformat="$,.0f"), domain = {'x': [0.66, 1], 'y': [0, 0.5]})
     )
 
     trade_indicator.update_layout(
@@ -172,18 +172,23 @@ def generate_stack_bar(df):
 def generate_treemap(df):
     df_ = df.groupby(["Type","Name"])[["P/L (SGD)","P/L (%)"]].sum().rename({"P/L (SGD)":"P/L"}, axis=1).reset_index()
 
+    # handle profit
     df_profit = df_[df_["P/L"]>=0].rename({"P/L":"Profit","P/L (%)":"Profit (%)"}, axis=1)
+    df_profit["PROFIT_TEXT"] = df_profit.apply(lambda row: "$" + str(round(row["Profit"])) +", "+ str(round(row["Profit (%)"]*100)) + "%", axis=1)
+    
+    # handle loss
     df_loss = df_[df_["P/L"]<0].rename({"P/L":"Loss","P/L (%)":"Loss (%)"}, axis=1)
     df_loss["Loss"] = df_loss["Loss"].map(lambda x: abs(x))
     df_loss["Loss (%)"] = df_loss["Loss (%)"].map(lambda x: abs(x))
+    df_loss["LOSS_TEXT"] = df_loss.apply(lambda row: "-$" + str(round(row["Loss"])) +", -"+ str(round(row["Loss (%)"]*100)) + "%", axis=1)
 
-    treemap_closed_profit = px.treemap(df_profit, path=[px.Constant("Asset Types"),"Type","Name"], values="Profit", color="Profit (%)" ,
+    treemap_closed_profit = px.treemap(df_profit, path=[px.Constant("Asset Types"),"Type","Name","PROFIT_TEXT"], values="Profit", color="Profit (%)" ,
                                                     color_continuous_scale="RdBu",
                                                     range_color = [df_profit["Profit (%)"].min(), df_profit["Profit (%)"].max()],
-                                                    hover_data = {"Name":True,"Profit":":$,.0f","Profit (%)":":.0%"},branchvalues="total")
+                                                    hover_data = {"Name":True,"Profit":":$,.02f","Profit (%)":":.01%"},branchvalues="total")
     treemap_closed_profit.update_layout(margin = dict(t=0), template=TEMPLATE)
 
-    treemap_closed_loss = px.treemap(df_loss, path=[px.Constant("Asset Types"),"Type","Name"], values="Loss", color="Loss (%)" ,
+    treemap_closed_loss = px.treemap(df_loss, path=[px.Constant("Asset Types"),"Type","Name","LOSS_TEXT"], values="Loss", color="Loss (%)" ,
                                                     color_continuous_scale="RdBu_r",
                                                     range_color = [df_loss["Loss (%)"].min(), df_loss["Loss (%)"].max()],
                                                     hover_data = {"Name":True,"Loss":":$,.0f","Loss (%)":":.0%"},branchvalues="total")
@@ -313,32 +318,15 @@ layout = html.Div([
             ]),
             dbc.Row([
                 dbc.Col([dcc.Graph(id="trade-indicator")], width={"size": 10, "offset": 1})]),
-        #     dbc.Row([
-        #         dbc.Col(html.H3("Select View:"),width={"size":3,"offset":1}),
-        #     dbc.Col([
-        #         dbc.RadioItems(
-        #             id="sym-radios",
-        #             className="btn-group",
-        #             inputClassName="btn-check",
-        #             labelClassName="btn btn-outline-primary",
-        #             labelCheckedClassName="active",
-        #             options=[
-        #                 {"label": "Asset Class", "value": "Type"},
-        #                 {"label": "Symbol", "value": "Symbol"}
-        #             ],
-        #             value="Type")
-        #     ], width=4)
-        # ], align="center", justify="center"),
-
             dbc.Row([
                 dbc.Col(html.H5(children='P/L by Asset Types', className="text-center"),
                                 width=4, className="mt-4"),
                 dbc.Col(html.H5(children='No. of Trade by Months', className="text-center"), width=8, className="mt-4"),
             ]),
-            dbc.Row([
+            # dbc.Row([
                 dbc.Col(dcc.Graph(id="bar"), width=6),
-                dbc.Col(dcc.Graph(id="stacked_bar"), width=6)
-            ],),
+            #     dbc.Col(dcc.Graph(id="stacked_bar"), width=6)
+            # ],),
             dbc.Row([
             dbc.Col(html.H5(children='P/L by Name (Profit)', className="text-center"),
                             width=4, className="mt-4"),
@@ -415,7 +403,7 @@ def update_type_dropdown(date, closed):
     Output(component_id="trade-indicator",component_property="figure"),
     Output(component_id="line", component_property="figure"),
     Output(component_id="bar", component_property="figure"),
-    Output(component_id="stacked_bar", component_property="figure"),
+    # Output(component_id="stacked_bar", component_property="figure"),
     Output(component_id="treemap-closed-profit", component_property="figure"),
     Output(component_id="treemap-closed-loss", component_property="figure"),
     Output(component_id="table-container", component_property="children"),
@@ -457,11 +445,11 @@ def update_graph(date,type, data, closed):
     trade_indicator = generate_trade_indicator(closed_position_filtered)
     line_fig = generate_line(closed_position_filtered)
     bar_fig = generate_bar(closed_position_filtered)
-    stack_bar = generate_stack_bar(data_filtered)
+    # stack_bar = generate_stack_bar(data_filtered)
     treemap_closed_profit, treemap_closed_loss = generate_treemap(closed_position_filtered)
     table_fig = generate_table(closed_position_filtered)
 
-    return indicator_fig, trade_indicator, line_fig, bar_fig, stack_bar,treemap_closed_profit,treemap_closed_loss, table_fig
+    return indicator_fig, trade_indicator, line_fig, bar_fig,treemap_closed_profit,treemap_closed_loss, table_fig
 
 
 @app.callback(
