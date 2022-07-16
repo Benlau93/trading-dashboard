@@ -280,7 +280,7 @@ class RefreshViews(APIView):
         # get daily P/L
         historical = pd.merge(open_position,data,on="symbol").dropna()
         historical = historical[historical["Date"]>=historical["date_open"]].copy()
-        historical["pl_sgd"] = ((historical["price"] * historical["total_quantity"]) * (historical["avg_exchange_rate"] * 0.99)) - historical["total_value_sgd"]
+        historical["pl_sgd"] = ((historical["price"] * historical["total_quantity"]) * (historical["avg_exchange_rate"])) - historical["total_value_sgd"]
         historical = historical[["Date","symbol","pl_sgd","price"]].copy()
         historical.columns = historical.columns.str.lower()
 
