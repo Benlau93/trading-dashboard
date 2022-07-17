@@ -47,6 +47,26 @@ def generate_kpi(df):
     return indicator_fig
 
 
+def generate_line(df):
+
+    # group by year
+    df_ = df.groupby([df["date_dividend"].dt.year]).sum()[["dividend_adjusted"]].reset_index()
+
+
+    # generate graph
+    line_fig = go.Figure()
+    
+    line_fig.add_trace(
+        go.Scatter(x=df_["date_dividend"], y=df_["dividend_adjusted"], name="Dividend",mode="lines+markers+text", texttemplate="%{y:$,.0f}", textposition="bottom right")
+    )
+
+    line_fig.update_layout(
+                xaxis=dict(showgrid=False),
+                yaxis=dict(showgrid=False),
+                height=500,
+                template=TEMPLATE
+    )
+    return line_fig
 
 layout = html.Div([
         dbc.Container([
@@ -64,6 +84,8 @@ layout = html.Div([
             ], justify="center"),
             dbc.Row([
                 dbc.Col([dcc.Graph(id="dividend-indicator")], width={"size": 10, "offset": 1})]),
+            dbc.Row([
+                dbc.Col([dcc.Graph(id="dividend-line")], width=10)], justify="center"),
     ])
 ])
 
@@ -83,6 +105,7 @@ def update_date_dropdown(_, dividend_df):
 
 @app.callback(
     Output(component_id="dividend-indicator", component_property="figure"),
+    Output(component_id="dividend-line", component_property="figure"),
     Input(component_id="dividend-date", component_property="value"),
     State(component_id="dividend-store", component_property="data")
 )
@@ -98,5 +121,6 @@ def generate_graph(year, dividend_df):
 
     # generate graph
     indicator_fig = generate_kpi(dividend_filtered)
+    line_fig = generate_line(dividend_df)
 
-    return indicator_fig
+    return indicator_fig, line_fig
