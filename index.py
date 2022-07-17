@@ -96,6 +96,8 @@ def load_data():
     # use csv to develop before backend api done
     dividend_df = pd.read_csv(os.path.join(r"C:\Users\ben_l\Desktop\Trading","Dividend.csv"))
     dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"])
+    # join to ticker to get currency
+    dividend_df = pd.merge(dividend_df, tickerinfo[["symbol","currency"]].rename({"symbol":"Symbol"}, axis=1), on="Symbol")
 
 
     return data.to_dict(orient="records"), closed.to_dict(orient="records"), open_position.to_dict(orient="records"), historical.to_dict(orient="records"), dividend_df.to_dict(orient="records")

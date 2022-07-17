@@ -79,8 +79,10 @@ layout = html.Div([
                 , className="mt-0 mb-4")
             ]),
             dbc.Row([
-                dbc.Col([html.H4("Select Year:")],width=3, align="center"),
-                dbc.Col([dcc.Dropdown(id='dividend-date',placeholder="Filter by Year" )],width=3, align="center")
+                dbc.Col([html.H5("Year:")],width=2, align="center"),
+                dbc.Col([dcc.Dropdown(id='dividend-date',placeholder="Filter by Year" )],width=3, align="center"),
+                dbc.Col([html.H5("Exchange:")],width=2, align="center"),
+                dbc.Col([dcc.Dropdown(options=[{"label":"SG","value":"SGD"}, {"label":"US","value":"USD"}],id='dividend-exchange',placeholder="Filter by Exchange" )],width=3, align="center")
             ], justify="center"),
             dbc.Row([
                 dbc.Col([dcc.Graph(id="dividend-indicator")], width={"size": 10, "offset": 1})]),
@@ -107,9 +109,10 @@ def update_date_dropdown(_, dividend_df):
     Output(component_id="dividend-indicator", component_property="figure"),
     Output(component_id="dividend-line", component_property="figure"),
     Input(component_id="dividend-date", component_property="value"),
+    Input(component_id="dividend-exchange", component_property="value"),
     State(component_id="dividend-store", component_property="data")
 )
-def generate_graph(year, dividend_df):
+def generate_graph(year, exchange, dividend_df):
     dividend_df = pd.DataFrame(dividend_df)
     dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"])
     dividend_filtered = dividend_df.copy()
@@ -118,6 +121,10 @@ def generate_graph(year, dividend_df):
     if year != None:
         year = int(year)
         dividend_filtered = dividend_df[dividend_df["date_dividend"].dt.year==year].copy()
+
+    if exchange != None:
+        dividend_df = dividend_df[dividend_df["currency"]==exchange].copy()
+        dividend_filtered = dividend_filtered[dividend_filtered["currency"]==exchange].copy()
 
     # generate graph
     indicator_fig = generate_kpi(dividend_filtered)
