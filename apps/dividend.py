@@ -47,6 +47,34 @@ def generate_kpi(df):
     return indicator_fig
 
 
+def generate_grp_bar(df):
+    df_ = df.groupby("Symbol").sum()[["dividend_adjusted","dividend_per"]].reset_index()
+    df_ = df_.sort_values("Symbol")
+
+    # generate bar chart
+    bar_fig = make_subplots(specs=[[{"secondary_y": True}]])
+
+    bar_fig.add_trace(
+        go.Bar(x = df_["Symbol"], y = df_["dividend_adjusted"], name="Dividend", textposition="inside", texttemplate="%{y:$,.0f}",offsetgroup=1)
+        
+    )
+
+    bar_fig.add_trace(
+        go.Bar(x = df_["Symbol"], y = df_["dividend_per"], name="Dividend (%)", textposition="inside", texttemplate="%{y:.01%}",offsetgroup=2),
+        secondary_y=True
+    )
+
+    bar_fig.update_yaxes(tickformat="$,.0f", showgrid=False, secondary_y = False)
+    bar_fig.update_yaxes(tickformat=".01%", showgrid=False, secondary_y=True)
+
+    bar_fig.update_layout(
+        height = 500,
+        template= TEMPLATE
+    )
+
+    return bar_fig
+
+
 def generate_line(df):
 
     # group by year
@@ -87,6 +115,8 @@ layout = html.Div([
             dbc.Row([
                 dbc.Col([dcc.Graph(id="dividend-indicator")], width={"size": 10, "offset": 1})]),
             dbc.Row([
+                dbc.Col([dcc.Graph(id="dividend-bar")], width=10)], justify="center"),
+            dbc.Row([
                 dbc.Col([dcc.Graph(id="dividend-line")], width=10)], justify="center"),
     ])
 ])
@@ -107,6 +137,7 @@ def update_date_dropdown(_, dividend_df):
 
 @app.callback(
     Output(component_id="dividend-indicator", component_property="figure"),
+    Output(component_id="dividend-bar", component_property="figure"),
     Output(component_id="dividend-line", component_property="figure"),
     Input(component_id="dividend-date", component_property="value"),
     Input(component_id="dividend-exchange", component_property="value"),
@@ -128,6 +159,7 @@ def generate_graph(year, exchange, dividend_df):
 
     # generate graph
     indicator_fig = generate_kpi(dividend_filtered)
+    bar_fig  = generate_grp_bar(dividend_filtered)
     line_fig = generate_line(dividend_df)
 
-    return indicator_fig, line_fig
+    return indicator_fig, bar_fig, line_fig
