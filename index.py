@@ -7,6 +7,7 @@ from apps import dashboard, portfolio, add, analysis, dividend
 from datetime import date
 import requests
 import pandas as pd
+import os
 
 # building the navigation bar
 navbar = dbc.NavbarSimple(
@@ -91,7 +92,13 @@ def load_data():
     open_position["Unrealised P/L (%)"] = open_position["Unrealised P/L"] / open_position["Amount (SGD)"]
     open_position["Value"] = open_position["Amount (SGD)"] + open_position["Unrealised P/L"]
 
-    return data.to_dict(orient="records"), closed.to_dict(orient="records"), open_position.to_dict(orient="records"), historical.to_dict(orient="records")
+
+    # use csv to develop before backend api done
+    dividend_df = pd.read_csv(os.path.join(r"C:\Users\ben_l\Desktop\Trading","Dividend.csv"))
+    dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"])
+
+
+    return data.to_dict(orient="records"), closed.to_dict(orient="records"), open_position.to_dict(orient="records"), historical.to_dict(orient="records"), dividend_df.to_dict(orient="records")
 
 
         
@@ -106,7 +113,8 @@ def serve_layout():
         dcc.Store(id="data-store"),
         dcc.Store(id="closed-store"),
         dcc.Store(id="open-store"),
-        dcc.Store(id="historical-store")
+        dcc.Store(id="historical-store"),
+        dcc.Store(id="dividend-store")
     ])
 app.layout = serve_layout
 
@@ -116,6 +124,7 @@ app.layout = serve_layout
     Output(component_id='closed-store', component_property='data'),
     Output(component_id='open-store', component_property='data'),
     Output(component_id='historical-store', component_property='data'),
+    Output(component_id='dividend-store', component_property='data'),
     Input(component_id='url', component_property='pathname')
 )
 def display_page(pathname):
@@ -134,9 +143,9 @@ def display_page(pathname):
 
     # load data
     print("RETRIEVE DATA FROM BACKEND API")
-    data, closed, open_position, historical = load_data()
+    data, closed, open_position, historical, dividend_df = load_data()
 
-    return layout, data, closed, open_position, historical 
+    return layout, data, closed, open_position, historical, dividend_df
     
 @app.callback(
     Output(component_id="download-dataframe-xlsx", component_property="data"),
