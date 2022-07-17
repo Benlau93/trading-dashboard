@@ -67,6 +67,19 @@ layout = html.Div([
     ])
 ])
 
+@app.callback(
+    Output(component_id="dividend-date", component_property="options"),
+    Input(component_id="url", component_property="pathname"),
+    State(component_id="dividend-store", component_property="data")
+)
+def update_date_dropdown(_, dividend_df):
+    dividend_df = pd.DataFrame(dividend_df)
+    dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"])
+    dividend_df = dividend_df.sort_values("date_dividend", ascending=False)
+
+    date_options = [{"label":d, "value":d} for d in dividend_df["date_dividend"].dt.year.unique()]
+
+    return date_options
 
 @app.callback(
     Output(component_id="dividend-indicator", component_property="figure"),
@@ -76,8 +89,14 @@ layout = html.Div([
 def generate_graph(year, dividend_df):
     dividend_df = pd.DataFrame(dividend_df)
     dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"])
+    dividend_filtered = dividend_df.copy()
+
+    # filter year
+    if year != None:
+        year = int(year)
+        dividend_filtered = dividend_df[dividend_df["date_dividend"].dt.year==year].copy()
 
     # generate graph
-    indicator_fig = generate_kpi(dividend_df)
+    indicator_fig = generate_kpi(dividend_filtered)
 
     return indicator_fig
