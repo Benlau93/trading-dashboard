@@ -16,8 +16,7 @@ TEMPLATE = "plotly_white"
 
 def generate_kpi(df):
     total_dividend = df["dividend_adjusted"].sum()
-    total_value = df["share_value"].sum()
-    dividend_yield = total_dividend / total_value
+    dividend_per = df["dividend_per"].sum()
 
     # generate indicator
     indicator_fig = go.Figure()
@@ -31,7 +30,7 @@ def generate_kpi(df):
 
     indicator_fig.add_trace(
         go.Indicator(mode="number",
-                        value=dividend_yield,
+                        value=dividend_per,
                         title = "Dividend Yield (%)",
                         number = dict(valueformat=".01%"),
                         domain={"row":0, "column":1})
@@ -64,10 +63,11 @@ def generate_grp_bar(df):
         secondary_y=True
     )
 
-    bar_fig.update_yaxes(tickformat="$,.0f", showgrid=False, secondary_y = False)
-    bar_fig.update_yaxes(tickformat=".01%", showgrid=False, secondary_y=True)
+    bar_fig.update_yaxes(tickformat="$,.0f", title = "Dividend",showgrid=False, secondary_y = False)
+    bar_fig.update_yaxes(tickformat=".01%", title = "Dividend (%)",showgrid=False, secondary_y=True)
 
     bar_fig.update_layout(
+        showlegend=False,
         height = 500,
         template= TEMPLATE
     )
@@ -102,20 +102,20 @@ layout = html.Div([
                 dbc.Col(html.Div( className="mt-0 mb-4"))
             ]),
             dbc.Row([
-                dbc.Col(dbc.Card(html.H3(children='Dividend',
-                                 className="text-center text-light bg-dark"), body=True, color="dark")
-                , className="mt-0 mb-4")
-            ]),
-            dbc.Row([
-                dbc.Col([html.H5("Year:")],width=2, align="center"),
-                dbc.Col([dcc.Dropdown(id='dividend-date',placeholder="Filter by Year" )],width=3, align="center"),
-                dbc.Col([html.H5("Exchange:")],width=2, align="center"),
-                dbc.Col([dcc.Dropdown(options=[{"label":"SG","value":"SGD"}, {"label":"US","value":"USD"}],id='dividend-exchange',placeholder="Filter by Exchange" )],width=3, align="center")
+                dbc.Col([html.H5("Year:")],width={"size":1 , "offset":1}, align="center"),
+                dbc.Col([dcc.Dropdown(id='dividend-date',placeholder="Filter by Year" )],width={"size":2,"offset":0}, align="center"),
+                dbc.Col([html.H5("Exchange:")],width={"size":2, "offset":1}, align="center"),
+                dbc.Col([dcc.Dropdown(options=[{"label":"SG","value":"SGD"}, {"label":"US","value":"USD"}],id='dividend-exchange',placeholder="Filter by Exchange" )],width={"size":2,"offset":0}, align="center")
             ], justify="center"),
             dbc.Row([
                 dbc.Col([dcc.Graph(id="dividend-indicator")], width={"size": 10, "offset": 1})]),
             dbc.Row([
                 dbc.Col([dcc.Graph(id="dividend-bar")], width=10)], justify="center"),
+            dbc.Row([
+                dbc.Col(dbc.Card(html.H3(children='Breakdown',
+                                 className="text-center text-light bg-dark"), body=True, color="dark")
+                , className="mt-0 mb-4")
+            ]),
             dbc.Row([
                 dbc.Col([dcc.Graph(id="dividend-line")], width=10)], justify="center"),
     ])
@@ -138,7 +138,7 @@ def update_date_dropdown(_, dividend_df):
 @app.callback(
     Output(component_id="dividend-indicator", component_property="figure"),
     Output(component_id="dividend-bar", component_property="figure"),
-    Output(component_id="dividend-line", component_property="figure"),
+    # Output(component_id="dividend-line", component_property="figure"),
     Input(component_id="dividend-date", component_property="value"),
     Input(component_id="dividend-exchange", component_property="value"),
     State(component_id="dividend-store", component_property="data")
@@ -160,6 +160,6 @@ def generate_graph(year, exchange, dividend_df):
     # generate graph
     indicator_fig = generate_kpi(dividend_filtered)
     bar_fig  = generate_grp_bar(dividend_filtered)
-    line_fig = generate_line(dividend_df)
+    # line_fig = generate_line(dividend_df)
 
-    return indicator_fig, bar_fig, line_fig
+    return indicator_fig, bar_fig
