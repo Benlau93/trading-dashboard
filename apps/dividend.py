@@ -31,7 +31,7 @@ def generate_kpi(df):
     indicator_fig.add_trace(
         go.Indicator(mode="number",
                         value=dividend_per,
-                        title = "Dividend Yield (%)",
+                        title = "Cumulative Dividend (%)",
                         number = dict(valueformat=".01%"),
                         domain={"row":0, "column":1})
     )
@@ -64,7 +64,7 @@ def generate_grp_bar(df):
     )
 
     bar_fig.update_yaxes(tickformat="$,.0f", title = "Dividend",showgrid=False, secondary_y = False)
-    bar_fig.update_yaxes(tickformat=".01%", title = "Dividend (%)",showgrid=False, secondary_y=True)
+    bar_fig.update_yaxes(tickformat=".01%", title = "Cumulative Dividend (%)",showgrid=False, secondary_y=True)
 
     bar_fig.update_layout(
         showlegend=False,
@@ -116,6 +116,13 @@ layout = html.Div([
                                  className="text-center text-light bg-dark"), body=True, color="dark")
                 , className="mt-0 mb-4")
             ]),
+            
+            dbc.Row([
+                dbc.Col(html.H5("Select Dividend Ticker"),width=3, align="center")
+            ], justify = "center"),
+            dbc.Row([
+                dbc.Col(dcc.Dropdown(id="dividend-selector", placeholder="Ticker"),width=3, align="center")
+            ], justify = "center"),
             dbc.Row([
                 dbc.Col([dcc.Graph(id="dividend-line")], width=10)], justify="center"),
     ])
@@ -130,15 +137,28 @@ def update_date_dropdown(_, dividend_df):
     dividend_df = pd.DataFrame(dividend_df)
     dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"])
     dividend_df = dividend_df.sort_values("date_dividend", ascending=False)
-
     date_options = [{"label":d, "value":d} for d in dividend_df["date_dividend"].dt.year.unique()]
 
-    return date_options
+    return date_options 
+
+@app.callback(
+    Output(component_id="dividend-selector", component_property="options"),
+    Output(component_id="dividend-selector", component_property="value"),
+    Input(component_id="url", component_property="pathname"),
+    State(component_id="dividend-store", component_property="data")
+)
+def update_ticker_dropdown(_, dividend_df):
+    dividend_df = pd.DataFrame(dividend_df)
+    dividend_df.sort_values(["Symbol"])
+
+    selector_options = [{"label":d, "value":d} for d in dividend_df["Symbol"].unique()]
+    highest_dividend = dividend_df.groupby("Symbol").sum()[["dividend_adjusted"]].reset_index().sort_values("dividend_adjusted", ascending=False)["Symbol"].iloc[0]
+
+    return selector_options, highest_dividend
 
 @app.callback(
     Output(component_id="dividend-indicator", component_property="figure"),
     Output(component_id="dividend-bar", component_property="figure"),
-    # Output(component_id="dividend-line", component_property="figure"),
     Input(component_id="dividend-date", component_property="value"),
     Input(component_id="dividend-exchange", component_property="value"),
     State(component_id="dividend-store", component_property="data")
@@ -160,6 +180,5 @@ def generate_graph(year, exchange, dividend_df):
     # generate graph
     indicator_fig = generate_kpi(dividend_filtered)
     bar_fig  = generate_grp_bar(dividend_filtered)
-    # line_fig = generate_line(dividend_df)
 
     return indicator_fig, bar_fig
