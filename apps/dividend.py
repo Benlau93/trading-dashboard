@@ -195,6 +195,7 @@ def generate_graph(year, exchange, dividend_df):
 
 @app.callback(
     Output(component_id="sub-indicator", component_property="figure"),
+    Output(component_id="dividend-line", component_property="figure"),
     Input(component_id="dividend-selector", component_property="value"),
     State(component_id="dividend-store", component_property="data")
 )
@@ -207,5 +208,6 @@ def generate_breakdown_graph(symbol, dividend_df):
 
     # generate graph
     indicator_fig = generate_kpi(dividend_df)
+    line_fig = generate_line(dividend_df)
 
-    return indicator_fig
+    return indicator_fig,line_fig
