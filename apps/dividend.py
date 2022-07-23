@@ -77,24 +77,31 @@ def generate_grp_bar(df):
 
 def generate_line(df):
 
-    # group by year
-    df_ = df.groupby([df["date_dividend"].dt.year]).sum()[["dividend_adjusted"]].reset_index()
+    # get cumulative dividend
+    df_ = df.groupby("date_dividend").sum()[["dividend_adjusted"]].reset_index().sort_values("date_dividend")
+    df_["Cumulative Dividend"] = df_["dividend_adjusted"].cumsum()
 
-
-    # generate graph
+    # line_fig = go.Figure()
     line_fig = go.Figure()
     
     line_fig.add_trace(
-        go.Scatter(x=df_["date_dividend"], y=df_["dividend_adjusted"], name="Dividend",mode="lines+markers+text", texttemplate="%{y:$,.0f}", textposition="bottom right")
+        go.Scatter(x=df_["date_dividend"], y=df_["Cumulative Dividend"], name="Cumulative Dividend",mode="lines+markers+text", texttemplate="%{y:$,.0f}", textposition="bottom right")
+    )
+    line_fig.add_trace(
+        go.Bar(x=df_["date_dividend"], y=df_["dividend_adjusted"], name="Dividend",texttemplate="%{y:$,.0f}",textposition="inside", marker_color = "#2E8B57", opacity=0.5)
+
     )
 
-    line_fig.update_layout(
-                xaxis=dict(showgrid=False),
-                yaxis=dict(showgrid=False),
-                height=500,
-                template=TEMPLATE
+
+    line_fig.update_layout(yaxis=dict(title="Dividend",tickformat="$,.0f"),
+                            xaxis = dict(showgrid=False),
+                            legend=dict(x=0.05,y=0.9),
+                            margin=dict(t=0),
+                            height=800,
+                            template=TEMPLATE
     )
     return line_fig
+
 
 layout = html.Div([
         dbc.Container([
@@ -123,6 +130,8 @@ layout = html.Div([
             dbc.Row([
                 dbc.Col(dcc.Dropdown(id="dividend-selector", placeholder="Ticker"),width=3, align="center")
             ], justify = "center"),
+            dbc.Row([
+                dbc.Col([dcc.Graph(id="sub-indicator")], width={"size": 10, "offset": 1})]),
             dbc.Row([
                 dbc.Col([dcc.Graph(id="dividend-line")], width=10)], justify="center"),
     ])
@@ -182,3 +191,21 @@ def generate_graph(year, exchange, dividend_df):
     bar_fig  = generate_grp_bar(dividend_filtered)
 
     return indicator_fig, bar_fig
+
+
+@app.callback(
+    Output(component_id="sub-indicator", component_property="figure"),
+    Input(component_id="dividend-selector", component_property="value"),
+    State(component_id="dividend-store", component_property="data")
+)
+def generate_breakdown_graph(symbol, dividend_df):
+    dividend_df = pd.DataFrame(dividend_df)
+    dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"])
+
+    # filter symvol
+    dividend_df = dividend_df[dividend_df["Symbol"]==symbol].copy()
+
+    # generate graph
+    indicator_fig = generate_kpi(dividend_df)
+
+    return indicator_fig
