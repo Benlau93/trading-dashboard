@@ -1,5 +1,5 @@
 from django.urls import path, include
-from .views import TransactionViews, TickerViews, ClosedViews, OpenViews, HistoricalViews, RefreshViews, DownloadViews
+from .views import TransactionViews, TickerViews, ClosedViews, OpenViews, HistoricalViews, RefreshViews, DownloadViews, RefreshDividend
 
 urlpatterns = [
     path('transaction', TransactionViews.as_view()),
@@ -8,5 +8,6 @@ urlpatterns = [
     path('open', OpenViews.as_view()),
     path('historical', HistoricalViews.as_view()),
     path('refresh', RefreshViews.as_view()),
-    path("download", DownloadViews.as_view())
+    path("download", DownloadViews.as_view()),
+    path("refresh-dividend", RefreshDividend.as_view())
 ]

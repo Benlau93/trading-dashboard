@@ -50,3 +50,17 @@ class HistoricalPL(models.Model):
     symbol = models.CharField(max_length=20, blank=False, db_column="SYMBOL")
     price = models.FloatField(blank = False, db_column="PRICE", default=0)
     pl_sgd = models.FloatField(blank = False, db_column="PL_SGD")
+
+
+class Dividend(models.Model):
+    id = models.CharField(max_length=50, primary_key=True)
+    symbol = models.CharField(max_length=20, blank=False)
+    date_dividend = models.DateField(blank=False)
+    dividends = models.FloatField(blank=False)
+    total_quantity = models.FloatField(blank=False)
+    total_value_sgd = models.FloatField(blank=False)
+    latest_exchange_rate = models.FloatField(blank=False)
+    dividend_value = models.FloatField(blank=False)
+    dividend_adjusted = models.FloatField(blank=False)
+    dividend_per = models.FloatField(blank=False)
+

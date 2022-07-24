@@ -8,6 +8,7 @@ from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition, 
 import yfinance as yf
 import numpy as np
 import pandas as pd
+import os
 
 class DownloadViews(APIView):
 
@@ -299,6 +300,95 @@ class RefreshViews(APIView):
         pl_sgd = record["pl_sgd"],
         ) for record in df_records]
         HistoricalPL.objects.bulk_create(model_instances)
+
+        return Response(status=status.HTTP_200_OK)
+
+
+class RefreshDividend(APIView):
+    # serializer
+
+    def get(self, request, format=None):
+
+
+        def adjust_dividend(row):
+            dividend = row["dividend_value"]
+        
+            if row["latest_rate"] != 1:
+                # account for 30% US tax
+                dividend = dividend * 0.7
+
+                # account for FSMone dividend handling fees
+                if row["date_dividend"] < pd.to_datetime("15-03-2021"):
+                    dividend -= (2.5*1.07)
+                
+                # account for exchange rate
+                dividend = dividend * row["latest_rate"]
+
+            
+            return max(0,dividend)
+        
+        # get current open position
+        open_position = OpenPosition.objects.all().values("symbol","date_open","total_quantity","total_value_sgd","avg_exchange_rate")
+        open_position = pd.DataFrame(open_position)
+
+        # get latest dividend (use csv first)
+        dividend_hist = pd.read_csv(os.path.join(r"C:\Users\ben_l\Desktop\Trading","Dividend - TEST.csv"))[["symbol","date_dividend"]]
+        dividend_hist["date_dividend"] = pd.to_datetime(dividend_hist["date_dividend"])
+        dividend_hist = dividend_hist.sort_values("date_dividend").groupby("symbol").tail(1)
+
+        # merge open and historical dividend
+        df = pd.merge(open_position, dividend_hist, on="symbol", how="left")
+        df["DATE"] = df.apply(lambda row: row["date_open"] if pd.isnull(row["date_dividend"]) else row["date_dividend"], axis=1)
+        df = df.drop(["date_dividend","date_open"], axis=1)
+        # get dividend from yf
+        symbols = " ".join(open_position["symbol"].unique())
+        tickers = yf.Tickers(symbols)
+
+        # get dividend table
+        dividend = pd.DataFrame()
+
+        for k,v in tickers.tickers.items():
+            _ = pd.DataFrame(v.dividends).reset_index()
+            _["symbol"] = k
+
+            # append to main
+            dividend = dividend.append(_, sort=True, ignore_index=True)
+
+        # format date
+        dividend["Date"] = pd.to_datetime(dividend["Date"])
+        dividend = dividend.rename({"Date":"date_dividend"}, axis=1)
+
+        # filter to new dividend not in DB
+        dividend = pd.merge(dividend, df, on="symbol")
+        dividend = dividend[dividend["date_dividend"]>dividend["DATE"]].copy()
+
+        # get latest exchange rate
+        exchange_rate = yf.download("SGDUSD=X", period = "3mo", interval="1d",progress=False)
+        exchange_rate = exchange_rate[["Close"]].reset_index()
+
+        us_stock = dividend[dividend["avg_exchange_rate"]>1][["symbol","date_dividend"]].copy()
+        exchange_rate = pd.merge(us_stock, exchange_rate, how="cross")
+        exchange_rate = exchange_rate[exchange_rate["Date"]<=exchange_rate["date_dividend"]].sort_values(["symbol","date_dividend","Date"]).groupby(["symbol","date_dividend"]).tail(1)
+        exchange_rate["latest_rate"] = exchange_rate["Close"].map(lambda x: 1/x)
+        exchange_rate = exchange_rate.drop(["Date","Close"], axis=1)
+
+        # merge back to dividend
+        dividend = pd.merge(dividend, exchange_rate, on=["symbol","date_dividend"], how="left")
+        dividend["latest_rate"] = dividend["latest_rate"].fillna(1)
+
+        # format dividend
+        dividend["dividend_value"] = dividend["Dividends"] * dividend["total_quantity"]
+        dividend["dividend_adjusted"] = dividend.apply(adjust_dividend, axis=1)
+
+        # remove 0 dividend
+        dividend = dividend[dividend["dividend_adjusted"]>0].copy()
+
+        # get dividend yield
+        dividend["dividend_per"] = dividend["dividend_adjusted"] / dividend["total_value_sgd"]
+
+
+
+        print(dividend.columns)
 
         return Response(status=status.HTTP_200_OK)
 
