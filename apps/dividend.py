@@ -74,29 +74,43 @@ def generate_grp_bar(df):
 
     return bar_fig
 
+def generate_line(df, value):
 
-def generate_line(df):
+    # get year month
+    df["YEARMONTH"] = df["date_dividend"].dt.strftime("%b-%Y")
+    df["YEAR"] = df["date_dividend"].dt.year
 
+    # define y
+    y = "dividend_adjusted" if value == "Absolute" else "dividend_per"
+    tickformat = "$,.02f" if value == "Absolute" else ".02%"
+    textemplate = "%{y:$,.02f}" if value == "Absolute" else "%{y:.02%}"
+    
     # get cumulative dividend
-    df_ = df.groupby("date_dividend").sum()[["dividend_adjusted"]].reset_index().sort_values("date_dividend")
-    df_["Cumulative Dividend"] = df_["dividend_adjusted"].cumsum()
+    df_ = df.groupby(["YEAR","YEARMONTH"]).sum()[[y]].reset_index()
+    df_["SORT"] = pd.to_datetime(df_["YEARMONTH"], format="%b-%Y")
+    df_ = df_.sort_values("SORT")
+    df_["Cumulative Dividend"] = df_.groupby("YEAR").cumsum()[y]
 
     # line_fig = go.Figure()
     line_fig = go.Figure()
     
     line_fig.add_trace(
-        go.Scatter(x=df_["date_dividend"], y=df_["Cumulative Dividend"], name="Cumulative Dividend",mode="lines+markers+text", texttemplate="%{y:$,.0f}", textposition="bottom right")
+        go.Scatter(x=[df_["YEAR"].tolist(), df_["YEARMONTH"].tolist()], y=df_["Cumulative Dividend"], name="Cumulative Dividend",mode="lines+markers+text", texttemplate=textemplate, textposition="bottom right")
     )
     line_fig.add_trace(
-        go.Bar(x=df_["date_dividend"], y=df_["dividend_adjusted"], name="Dividend",texttemplate="%{y:$,.0f}",textposition="inside", marker_color = "#2E8B57", opacity=0.5)
+        go.Bar(x=[df_["YEAR"].tolist(), df_["YEARMONTH"].tolist()], y=df_[y], name="Dividend", marker_color = "#2E8B57", opacity=0.5)
 
     )
 
+    # add line for each year
+    years = df_["YEAR"].unique()
+    for year in years:
+        x = df_[df_["YEAR"]==year].tail(1)["YEARMONTH"].iloc[0]
+        line_fig.add_vline(x=[[year],[x]], line_width=2, line_dash="dash", line_color="black")
 
-    line_fig.update_layout(yaxis=dict(title="Dividend",tickformat="$,.0f"),
+    line_fig.update_layout(yaxis=dict(title="Dividend",tickformat=tickformat),
                             xaxis = dict(showgrid=False),
                             legend=dict(x=0.05,y=0.9),
-                            margin=dict(t=0),
                             height=800,
                             template=TEMPLATE
     )
@@ -134,6 +148,19 @@ layout = html.Div([
                 dbc.Col([dcc.Graph(id="sub-indicator")], width={"size": 10, "offset": 1})]),
             dbc.Row([
                 dbc.Col([dcc.Graph(id="dividend-line")], width=10)], justify="center"),
+            dbc.Row([
+                dbc.Col([
+                    dbc.RadioItems(
+                        id="dividend-radios",
+                        className="btn-group",
+                        inputClassName="btn-check",
+                        labelClassName="btn btn-outline-info",
+                        labelCheckedClassName="active",
+                        options=[
+                            {"label": "Absolute", "value": "Absolute"},
+                            {"label": "Percentage", "value": "Percentage"}
+                        ], value="Absolute")]
+                    , width={"size":3,"offset":4})]),
     ])
 ])
 
@@ -197,9 +224,10 @@ def generate_graph(year, exchange, dividend_df):
     Output(component_id="sub-indicator", component_property="figure"),
     Output(component_id="dividend-line", component_property="figure"),
     Input(component_id="dividend-selector", component_property="value"),
+    Input(component_id="dividend-radios", component_property="value"),
     State(component_id="dividend-store", component_property="data")
 )
-def generate_breakdown_graph(symbol, dividend_df):
+def generate_breakdown_graph(symbol, value, dividend_df):
     dividend_df = pd.DataFrame(dividend_df)
     dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"])
 
@@ -208,6 +236,6 @@ def generate_breakdown_graph(symbol, dividend_df):
 
     # generate graph
     indicator_fig = generate_kpi(dividend_df)
-    line_fig = generate_line(dividend_df)
+    line_fig = generate_line(dividend_df, value)
 
     return indicator_fig,line_fig
