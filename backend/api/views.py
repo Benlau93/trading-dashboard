@@ -322,7 +322,7 @@ class RefreshDividend(APIView):
         def adjust_dividend(row):
             dividend = row["dividend_value"]
         
-            if row["latest_rate"] != 1:
+            if row["latest_exchange_rate"] != 1:
                 # account for 30% US tax
                 dividend = dividend * 0.7
 
@@ -331,7 +331,7 @@ class RefreshDividend(APIView):
                     dividend -= (2.5*1.07)
                 
                 # account for exchange rate
-                dividend = dividend * row["latest_rate"]
+                dividend = dividend * row["latest_exchange_rate"]
 
             
             return max(0,dividend)
@@ -343,7 +343,7 @@ class RefreshDividend(APIView):
         # get latest dividend (use csv first)
         dividend_hist = pd.read_csv(os.path.join(r"C:\Users\ben_l\Desktop\Trading","Dividend - TEST.csv"))[["symbol","date_dividend"]]
         dividend_hist["date_dividend"] = pd.to_datetime(dividend_hist["date_dividend"])
-        dividend_hist = dividend_hist.sort_values("date_dividend").groupby("symbol").tail(1)
+        dividend_hist = dividend_hist.sort_values(["symbol","date_dividend"]).groupby("symbol").tail(1)
 
         # merge open and historical dividend
         df = pd.merge(open_position, dividend_hist, on="symbol", how="left")
@@ -372,7 +372,7 @@ class RefreshDividend(APIView):
         dividend = dividend[dividend["date_dividend"]>dividend["DATE"]].copy()
 
         # get latest exchange rate
-        exchange_rate = yf.download("SGDUSD=X", period = "3mo", interval="1d",progress=False)
+        exchange_rate = yf.download("SGDUSD=X", period = "6mo", interval="1d",progress=False)
         exchange_rate = exchange_rate[["Close"]].reset_index()
 
         us_stock = dividend[dividend["avg_exchange_rate"]>1][["symbol","date_dividend"]].copy()
@@ -395,6 +395,9 @@ class RefreshDividend(APIView):
         # get dividend yield
         dividend["dividend_per"] = dividend["dividend_adjusted"] / dividend["total_value_sgd"]
 
+        # get ID
+        dividend["id"] = dividend["symbol"] + "|" + dividend["date_dividend"].astype(str) + "|" + dividend["Dividends"].astype(str)
+        print(dividend)
         return Response(status=status.HTTP_200_OK)
 
         

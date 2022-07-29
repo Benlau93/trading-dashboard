@@ -15,8 +15,8 @@ TEMPLATE = "plotly_white"
 
 
 def generate_kpi(df):
-    total_dividend = df["dividend_adjusted"].sum()
-    dividend_per = df["dividend_per"].sum()
+    total_dividend = df["Dividend_adjusted"].sum()
+    dividend_per = df["Dividend_per"].sum()
 
     # generate indicator
     indicator_fig = go.Figure()
@@ -47,19 +47,19 @@ def generate_kpi(df):
 
 
 def generate_grp_bar(df):
-    df_ = df.groupby("Symbol").sum()[["dividend_adjusted","dividend_per"]].reset_index()
+    df_ = df.groupby("Symbol").sum()[["Dividend_adjusted","Dividend_per"]].reset_index()
     df_ = df_.sort_values("Symbol")
 
     # generate bar chart
     bar_fig = make_subplots(specs=[[{"secondary_y": True}]])
 
     bar_fig.add_trace(
-        go.Bar(x = df_["Symbol"], y = df_["dividend_adjusted"], name="Dividend", textposition="inside", texttemplate="%{y:$,.0f}",offsetgroup=1)
+        go.Bar(x = df_["Symbol"], y = df_["Dividend_adjusted"], name="Dividend", textposition="inside", texttemplate="%{y:$,.0f}",offsetgroup=1)
         
     )
 
     bar_fig.add_trace(
-        go.Bar(x = df_["Symbol"], y = df_["dividend_per"], name="Dividend (%)", textposition="inside", texttemplate="%{y:.01%}",offsetgroup=2),
+        go.Bar(x = df_["Symbol"], y = df_["Dividend_per"], name="Dividend (%)", textposition="inside", texttemplate="%{y:.01%}",offsetgroup=2),
         secondary_y=True
     )
 
@@ -77,11 +77,11 @@ def generate_grp_bar(df):
 def generate_line(df, value):
 
     # get year month
-    df["YEARMONTH"] = df["date_dividend"].dt.strftime("%b-%Y")
-    df["YEAR"] = df["date_dividend"].dt.year
+    df["YEARMONTH"] = df["Date_dividend"].dt.strftime("%b-%Y")
+    df["YEAR"] = df["Date_dividend"].dt.year
 
     # define y
-    y = "dividend_adjusted" if value == "Absolute" else "dividend_per"
+    y = "Dividend_adjusted" if value == "Absolute" else "Dividend_per"
     tickformat = "$,.02f" if value == "Absolute" else ".02%"
     textemplate = "%{y:$,.02f}" if value == "Absolute" else "%{y:.02%}"
     
@@ -171,9 +171,9 @@ layout = html.Div([
 )
 def update_date_dropdown(_, dividend_df):
     dividend_df = pd.DataFrame(dividend_df)
-    dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"])
-    dividend_df = dividend_df.sort_values("date_dividend", ascending=False)
-    date_options = [{"label":d, "value":d} for d in dividend_df["date_dividend"].dt.year.unique()]
+    dividend_df["Date_dividend"] = pd.to_datetime(dividend_df["Date_dividend"])
+    dividend_df = dividend_df.sort_values("Date_dividend", ascending=False)
+    date_options = [{"label":d, "value":d} for d in dividend_df["Date_dividend"].dt.year.unique()]
 
     return date_options 
 
@@ -188,7 +188,7 @@ def update_ticker_dropdown(_, dividend_df):
     dividend_df.sort_values(["Symbol"])
 
     selector_options = [{"label":d, "value":d} for d in dividend_df["Symbol"].unique()]
-    highest_dividend = dividend_df.groupby("Symbol").sum()[["dividend_adjusted"]].reset_index().sort_values("dividend_adjusted", ascending=False)["Symbol"].iloc[0]
+    highest_dividend = dividend_df.groupby("Symbol").sum()[["Dividend_adjusted"]].reset_index().sort_values("Dividend_adjusted", ascending=False)["Symbol"].iloc[0]
 
     return selector_options, highest_dividend
 
@@ -201,17 +201,17 @@ def update_ticker_dropdown(_, dividend_df):
 )
 def generate_graph(year, exchange, dividend_df):
     dividend_df = pd.DataFrame(dividend_df)
-    dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"])
+    dividend_df["Date_dividend"] = pd.to_datetime(dividend_df["Date_dividend"])
     dividend_filtered = dividend_df.copy()
 
     # filter year
     if year != None:
         year = int(year)
-        dividend_filtered = dividend_df[dividend_df["date_dividend"].dt.year==year].copy()
+        dividend_filtered = dividend_df[dividend_df["Date_dividend"].dt.year==year].copy()
 
     if exchange != None:
-        dividend_df = dividend_df[dividend_df["currency"]==exchange].copy()
-        dividend_filtered = dividend_filtered[dividend_filtered["currency"]==exchange].copy()
+        dividend_df = dividend_df[dividend_df["Currency"]==exchange].copy()
+        dividend_filtered = dividend_filtered[dividend_filtered["Currency"]==exchange].copy()
 
     # generate graph
     indicator_fig = generate_kpi(dividend_filtered)
@@ -229,7 +229,7 @@ def generate_graph(year, exchange, dividend_df):
 )
 def generate_breakdown_graph(symbol, value, dividend_df):
     dividend_df = pd.DataFrame(dividend_df)
-    dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"])
+    dividend_df["Date_dividend"] = pd.to_datetime(dividend_df["Date_dividend"])
 
     # filter symvol
     dividend_df = dividend_df[dividend_df["Symbol"]==symbol].copy()
