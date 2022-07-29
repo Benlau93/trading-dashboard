@@ -2,7 +2,7 @@ from rest_framework import serializers, status
 from rest_framework.views import APIView
 from datetime import date
 from datetime import datetime
-from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer, HistoricalSerializer
+from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer, HistoricalSerializer, DividendSerializer
 from rest_framework.response import Response
 from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition, HistoricalPL
 import yfinance as yf
@@ -306,6 +306,7 @@ class RefreshViews(APIView):
 
 class RefreshDividend(APIView):
     # serializer
+    dividend_serializer = DividendSerializer
 
     def get(self, request, format=None):
 
@@ -369,12 +370,12 @@ class RefreshDividend(APIView):
         us_stock = dividend[dividend["avg_exchange_rate"]>1][["symbol","date_dividend"]].copy()
         exchange_rate = pd.merge(us_stock, exchange_rate, how="cross")
         exchange_rate = exchange_rate[exchange_rate["Date"]<=exchange_rate["date_dividend"]].sort_values(["symbol","date_dividend","Date"]).groupby(["symbol","date_dividend"]).tail(1)
-        exchange_rate["latest_rate"] = exchange_rate["Close"].map(lambda x: 1/x)
+        exchange_rate["latest_exchange_rate"] = exchange_rate["Close"].map(lambda x: 1/x)
         exchange_rate = exchange_rate.drop(["Date","Close"], axis=1)
 
         # merge back to dividend
         dividend = pd.merge(dividend, exchange_rate, on=["symbol","date_dividend"], how="left")
-        dividend["latest_rate"] = dividend["latest_rate"].fillna(1)
+        dividend["latest_exchange_rate"] = dividend["latest_exchange_rate"].fillna(1)
 
         # format dividend
         dividend["dividend_value"] = dividend["Dividends"] * dividend["total_quantity"]
@@ -385,10 +386,6 @@ class RefreshDividend(APIView):
 
         # get dividend yield
         dividend["dividend_per"] = dividend["dividend_adjusted"] / dividend["total_value_sgd"]
-
-
-
-        print(dividend.columns)
 
         return Response(status=status.HTTP_200_OK)
 
