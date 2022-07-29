@@ -4,7 +4,7 @@ from datetime import date
 from datetime import datetime
 from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer, HistoricalSerializer, DividendSerializer
 from rest_framework.response import Response
-from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition, HistoricalPL
+from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition, HistoricalPL, Dividend
 import yfinance as yf
 import numpy as np
 import pandas as pd
@@ -52,6 +52,14 @@ class HistoricalViews(APIView):
     def get(self, request, format=None):
         data = HistoricalPL.objects.all()
         serializer = self.hist_serializer(data, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+class DividendViews(APIView):
+    dividend_serializer = DividendSerializer
+
+    def get(self, request, format=None):
+        data = Dividend.objects.all()
+        serializer = self.dividend_serializer(data, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 class TransactionViews(APIView):
