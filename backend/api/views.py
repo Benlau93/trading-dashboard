@@ -397,7 +397,7 @@ class RefreshDividend(APIView):
 
         # get ID
         dividend["id"] = dividend["symbol"] + "|" + dividend["date_dividend"].astype(str) + "|" + dividend["Dividends"].astype(str)
-        print(dividend)
+
         return Response(status=status.HTTP_200_OK)
 
         

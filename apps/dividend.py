@@ -1,14 +1,13 @@
 from dash import html
 from dash import dcc
 import dash_bootstrap_components as dbc
+from dash.exceptions import PreventUpdate
 import pandas as pd
-import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from dash.dependencies import Input, Output, State
-from dash import dash_table
 from app import app
-from datetime import date
+import requests
 
 # define template used
 TEMPLATE = "plotly_white"
@@ -119,6 +118,13 @@ def generate_line(df, value):
 
 layout = html.Div([
         dbc.Container([
+            dbc.Row([
+                dcc.Location(id='div-refresh-url', refresh=True),
+                dbc.Col(html.Div( className="mt-0 mb-4"))
+            ]),
+            dbc.Row([
+                dbc.Col(dbc.Button("Refresh Dividend",id="div-refresh-button",color="warning"),width=2)
+            ], align="start", justify="end"),
             dbc.Row([
                 dbc.Col(html.Div( className="mt-0 mb-4"))
             ]),
@@ -239,3 +245,21 @@ def generate_breakdown_graph(symbol, value, dividend_df):
     line_fig = generate_line(dividend_df, value)
 
     return indicator_fig,line_fig
+
+
+@app.callback(
+    Output(component_id = "div-refresh-url", component_property = "href"),
+    Input(component_id="div-refresh-button", component_property="n_clicks"),
+    prevent_initial_call=True,
+)
+def refresh_data(n_clicks):
+
+    if (n_clicks != None and n_clicks >= 1):
+        response = requests.get("http://127.0.0.1:8000/api/refresh-dividend")
+
+        if response.status_code == 200:
+            return "http://127.0.0.1:8050/"
+        else:
+            return "http://127.0.0.1:8050/dividend"
+    else:
+        raise PreventUpdate
