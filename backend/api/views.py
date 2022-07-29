@@ -371,48 +371,51 @@ class RefreshDividend(APIView):
         dividend = pd.merge(dividend, df, on="symbol")
         dividend = dividend[dividend["date_dividend"]>dividend["DATE"]].copy()
 
-        # get latest exchange rate
-        exchange_rate = yf.download("SGDUSD=X", period = "6mo", interval="1d",progress=False)
-        exchange_rate = exchange_rate[["Close"]].reset_index()
+        # check if there is new dividend
+        if len(dividend) > 0:
 
-        us_stock = dividend[dividend["avg_exchange_rate"]>1][["symbol","date_dividend"]].copy()
-        exchange_rate = pd.merge(us_stock, exchange_rate, how="cross")
-        exchange_rate = exchange_rate[exchange_rate["Date"]<=exchange_rate["date_dividend"]].sort_values(["symbol","date_dividend","Date"]).groupby(["symbol","date_dividend"]).tail(1)
-        exchange_rate["latest_exchange_rate"] = exchange_rate["Close"].map(lambda x: 1/x)
-        exchange_rate = exchange_rate.drop(["Date","Close"], axis=1)
+            # get latest exchange rate
+            exchange_rate = yf.download("SGDUSD=X", period = "6mo", interval="1d",progress=False)
+            exchange_rate = exchange_rate[["Close"]].reset_index()
 
-        # merge back to dividend
-        dividend = pd.merge(dividend, exchange_rate, on=["symbol","date_dividend"], how="left")
-        dividend["latest_exchange_rate"] = dividend["latest_exchange_rate"].fillna(1)
+            us_stock = dividend[dividend["avg_exchange_rate"]>1][["symbol","date_dividend"]].copy()
+            exchange_rate = pd.merge(us_stock, exchange_rate, how="cross")
+            exchange_rate = exchange_rate[exchange_rate["Date"]<=exchange_rate["date_dividend"]].sort_values(["symbol","date_dividend","Date"]).groupby(["symbol","date_dividend"]).tail(1)
+            exchange_rate["latest_exchange_rate"] = exchange_rate["Close"].map(lambda x: 1/x)
+            exchange_rate = exchange_rate.drop(["Date","Close"], axis=1)
 
-        # format dividend
-        dividend["dividend_value"] = dividend["Dividends"] * dividend["total_quantity"]
-        dividend["dividend_adjusted"] = dividend.apply(adjust_dividend, axis=1)
+            # merge back to dividend
+            dividend = pd.merge(dividend, exchange_rate, on=["symbol","date_dividend"], how="left")
+            dividend["latest_exchange_rate"] = dividend["latest_exchange_rate"].fillna(1)
 
-        # remove 0 dividend
-        dividend = dividend[dividend["dividend_adjusted"]>0].copy()
+            # format dividend
+            dividend["dividend_value"] = dividend["Dividends"] * dividend["total_quantity"]
+            dividend["dividend_adjusted"] = dividend.apply(adjust_dividend, axis=1)
 
-        # get dividend yield
-        dividend["dividend_per"] = dividend["dividend_adjusted"] / dividend["total_value_sgd"]
+            # remove 0 dividend
+            dividend = dividend[dividend["dividend_adjusted"]>0].copy()
 
-        # get ID
-        dividend["id"] = dividend["symbol"] + "|" + dividend["date_dividend"].astype(str) + "|" + dividend["Dividends"].astype(str)
+            # get dividend yield
+            dividend["dividend_per"] = dividend["dividend_adjusted"] / dividend["total_value_sgd"]
 
-        # ingest into dividend model
-        df_records = dividend.to_dict(orient="records")
-        model_instances = [Dividend(
-        id = record["id"],
-        symbol = record["symbol"],
-        date_dividend = record["date_dividend"],
-        dividends = record["Dividends"],
-        total_quantity = record["total_quantity"],
-        total_value_sgd = record["total_value_sgd"],
-        latest_exchange_rate = record["latest_exchange_rate"],
-        dividend_value = record["dividend_value"],
-        dividend_adjusted = record["dividend_adjusted"],
-        dividend_per = record["dividend_per"],
-        ) for record in df_records]
-        Dividend.objects.bulk_create(model_instances)
+            # get ID
+            dividend["id"] = dividend["symbol"] + "|" + dividend["date_dividend"].astype(str) + "|" + dividend["Dividends"].astype(str)
+
+            # ingest into dividend model
+            df_records = dividend.to_dict(orient="records")
+            model_instances = [Dividend(
+            id = record["id"],
+            symbol = record["symbol"],
+            date_dividend = record["date_dividend"],
+            dividends = record["Dividends"],
+            total_quantity = record["total_quantity"],
+            total_value_sgd = record["total_value_sgd"],
+            latest_exchange_rate = record["latest_exchange_rate"],
+            dividend_value = record["dividend_value"],
+            dividend_adjusted = record["dividend_adjusted"],
+            dividend_per = record["dividend_per"],
+            ) for record in df_records]
+            Dividend.objects.bulk_create(model_instances)
 
         return Response(status=status.HTTP_200_OK)
 
