@@ -93,9 +93,10 @@ def load_data():
     open_position["Value"] = open_position["Amount (SGD)"] + open_position["Unrealised P/L"]
 
 
-    # use csv to develop before backend api done
-    dividend_df = pd.read_csv(os.path.join(r"C:\Users\ben_l\Desktop\Trading","Dividend.csv"))
-    dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"])
+    # import dividend
+    dividend_df = requests.get("http://127.0.0.1:8000/api/dividend")
+    dividend_df = pd.DataFrame.from_dict(dividend_df.json())
+    dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"], format="%Y-%m-%d")
     # join to ticker to get currency
     dividend_df = pd.merge(dividend_df, tickerinfo[["symbol","currency"]], on="symbol")
     dividend_df.columns = dividend_df.columns.str.capitalize()
@@ -176,4 +177,4 @@ def export_data(n_clicks, data, closed, open_position):
 
 # start server
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=False)

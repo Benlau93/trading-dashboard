@@ -341,8 +341,8 @@ class RefreshDividend(APIView):
         open_position = pd.DataFrame(open_position)
 
         # get latest dividend (use csv first)
-        dividend_hist = pd.read_csv(os.path.join(r"C:\Users\ben_l\Desktop\Trading","Dividend - TEST.csv"))[["symbol","date_dividend"]]
-        dividend_hist["date_dividend"] = pd.to_datetime(dividend_hist["date_dividend"])
+        dividend_hist = Dividend.objects.all().values("symbol","date_dividend")
+        dividend_hist = pd.DataFrame(dividend_hist)
         dividend_hist = dividend_hist.sort_values(["symbol","date_dividend"]).groupby("symbol").tail(1)
 
         # merge open and historical dividend
@@ -397,6 +397,22 @@ class RefreshDividend(APIView):
 
         # get ID
         dividend["id"] = dividend["symbol"] + "|" + dividend["date_dividend"].astype(str) + "|" + dividend["Dividends"].astype(str)
+
+        # ingest into dividend model
+        df_records = dividend.to_dict(orient="records")
+        model_instances = [Dividend(
+        id = record["id"],
+        symbol = record["symbol"],
+        date_dividend = record["date_dividend"],
+        dividends = record["Dividends"],
+        total_quantity = record["total_quantity"],
+        total_value_sgd = record["total_value_sgd"],
+        latest_exchange_rate = record["latest_exchange_rate"],
+        dividend_value = record["dividend_value"],
+        dividend_adjusted = record["dividend_adjusted"],
+        dividend_per = record["dividend_per"],
+        ) for record in df_records]
+        Dividend.objects.bulk_create(model_instances)
 
         return Response(status=status.HTTP_200_OK)
 
