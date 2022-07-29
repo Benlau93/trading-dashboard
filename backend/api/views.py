@@ -395,27 +395,30 @@ class RefreshDividend(APIView):
             # remove 0 dividend
             dividend = dividend[dividend["dividend_adjusted"]>0].copy()
 
-            # get dividend yield
-            dividend["dividend_per"] = dividend["dividend_adjusted"] / dividend["total_value_sgd"]
+            # check if there is positive dividend
+            if len(dividend) >0:
 
-            # get ID
-            dividend["id"] = dividend["symbol"] + "|" + dividend["date_dividend"].astype(str) + "|" + dividend["Dividends"].astype(str)
+                # get dividend yield
+                dividend["dividend_per"] = dividend["dividend_adjusted"] / dividend["total_value_sgd"]
 
-            # ingest into dividend model
-            df_records = dividend.to_dict(orient="records")
-            model_instances = [Dividend(
-            id = record["id"],
-            symbol = record["symbol"],
-            date_dividend = record["date_dividend"],
-            dividends = record["Dividends"],
-            total_quantity = record["total_quantity"],
-            total_value_sgd = record["total_value_sgd"],
-            latest_exchange_rate = record["latest_exchange_rate"],
-            dividend_value = record["dividend_value"],
-            dividend_adjusted = record["dividend_adjusted"],
-            dividend_per = record["dividend_per"],
-            ) for record in df_records]
-            Dividend.objects.bulk_create(model_instances)
+                # get ID
+                dividend["id"] = dividend["symbol"] + "|" + dividend["date_dividend"].astype(str) + "|" + dividend["Dividends"].astype(str)
+
+                # ingest into dividend model
+                df_records = dividend.to_dict(orient="records")
+                model_instances = [Dividend(
+                id = record["id"],
+                symbol = record["symbol"],
+                date_dividend = record["date_dividend"],
+                dividends = record["Dividends"],
+                total_quantity = record["total_quantity"],
+                total_value_sgd = record["total_value_sgd"],
+                latest_exchange_rate = record["latest_exchange_rate"],
+                dividend_value = record["dividend_value"],
+                dividend_adjusted = record["dividend_adjusted"],
+                dividend_per = record["dividend_per"],
+                ) for record in df_records]
+                Dividend.objects.bulk_create(model_instances)
 
         return Response(status=status.HTTP_200_OK)
 

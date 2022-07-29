@@ -153,25 +153,40 @@ def display_page(pathname):
 @app.callback(
     Output(component_id="download-dataframe-xlsx", component_property="data"),
     Input(component_id="export-button",component_property="n_clicks"),
-    State(component_id='data-store', component_property='data'),
-    State(component_id='closed-store', component_property='data'),
-    State(component_id='open-store', component_property='data'),
     prevent_initial_call=True,
 )
-def export_data(n_clicks, data, closed, open_position):
-    if data != None and closed != None and open_position != None:
-        data = pd.DataFrame(data).drop("DATE", axis=1)
-        closed = pd.DataFrame(closed).drop(["Date","DATE"], axis=1)
-        open_position = pd.DataFrame(open_position).drop("Date", axis=1)
+def export_data(n_clicks):
 
-        def to_xlsx(bytes_io):
-            xlsx_writer = pd.ExcelWriter(bytes_io, engine="xlsxwriter")
-            data.to_excel(xlsx_writer, index=False, sheet_name="Transaction")
-            closed.to_excel(xlsx_writer, index=False, sheet_name="Closed Position")
-            open_position.to_excel(xlsx_writer, index=False, sheet_name="Open Position")
-            xlsx_writer.save()
+    # ticker information
+    tickerinfo = requests.get("http://127.0.0.1:8000/api/ticker")
+    tickerinfo = pd.DataFrame.from_dict(tickerinfo.json())
 
-        return dcc.send_bytes(to_xlsx, "Trading Dashboard.xlsx")
+    # transaction
+    data = requests.get("http://127.0.0.1:8000/api/transaction")
+    data = pd.DataFrame.from_dict(data.json())
+
+    # closed position
+    closed = requests.get("http://127.0.0.1:8000/api/closed")
+    closed = pd.DataFrame.from_dict(closed.json())
+
+    # open position
+    open_position = requests.get("http://127.0.0.1:8000/api/open")
+    open_position = pd.DataFrame.from_dict(open_position.json())
+
+    # dividend
+    dividend_df = requests.get("http://127.0.0.1:8000/api/dividend")
+    dividend_df = pd.DataFrame.from_dict(dividend_df.json())
+
+    def to_xlsx(bytes_io):
+        xlsx_writer = pd.ExcelWriter(bytes_io, engine="xlsxwriter")
+        tickerinfo.to_excel(xlsx_writer, index=False, sheet_name="Ticker")
+        data.to_excel(xlsx_writer, index=False, sheet_name="Transaction")
+        closed.to_excel(xlsx_writer, index=False, sheet_name="Closed Position")
+        open_position.to_excel(xlsx_writer, index=False, sheet_name="Open Position")
+        dividend_df.to_excel(xlsx_writer, index=False, sheet_name="Dividend")
+        xlsx_writer.save()
+
+    return dcc.send_bytes(to_xlsx, "Trading Dashboard.xlsx")
 
 
 
