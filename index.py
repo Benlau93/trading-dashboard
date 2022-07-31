@@ -12,8 +12,8 @@ import os
 # building the navigation bar
 navbar = dbc.NavbarSimple(
     children=[
-        dbc.NavItem(dbc.NavLink("Dashboard", href="/")),
-        dbc.NavItem(dbc.NavLink("Portfolio", href="/portfolio")),
+        dbc.NavItem(dbc.NavLink("Portfolio", href="/")),
+        dbc.NavItem(dbc.NavLink("Dashboard", href="/dashboard")),
         dbc.NavItem(dbc.NavLink("Dividend", href="/dividend")),
         dbc.NavItem(dbc.NavLink("Analysis", href="/analysis")),
         dbc.NavItem(dbc.NavLink("Export",id="export-button", href="/")),
@@ -131,9 +131,9 @@ app.layout = serve_layout
     Input(component_id='url', component_property='pathname')
 )
 def display_page(pathname):
-    if pathname == '/portfolio':
-        layout = portfolio.layout
-    elif pathname == "/portfolio/refresh":
+    if pathname == '/dashboard':
+        layout = dashboard.layout
+    elif pathname == "/refresh":
         layout =  portfolio.layout
     elif pathname == "/portfolio/add":
         layout =  add.layout
@@ -142,7 +142,7 @@ def display_page(pathname):
     elif pathname == "/analysis":
         layout =  analysis.layout
     else:
-        layout = dashboard.layout
+        layout = portfolio.layout
 
     # load data
     print("RETRIEVE DATA FROM BACKEND API")

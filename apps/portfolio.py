@@ -530,7 +530,7 @@ def refresh_data(n_clicks, url,n):
 
     if (n_clicks != None and n_clicks >= 1) or n>=1:
         response = requests.get("http://127.0.0.1:8000/api/refresh")
-        return_url = "http://127.0.0.1:8050/portfolio/refresh" if url.endswith("portfolio") else "http://127.0.0.1:8050/portfolio"
+        return_url = "http://127.0.0.1:8050/refresh"
 
         if response.status_code == 200:
             return dbc.Alert("Price successfully refreshed", color="Primary"), "alert alert-success", return_url
