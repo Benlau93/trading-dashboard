@@ -13,7 +13,7 @@ import os
 navbar = dbc.NavbarSimple(
     children=[
         dbc.NavItem(dbc.NavLink("Portfolio", href="/")),
-        dbc.NavItem(dbc.NavLink("Dashboard", href="/dashboard")),
+        dbc.NavItem(dbc.NavLink("Trading", href="/trading")),
         dbc.NavItem(dbc.NavLink("Dividend", href="/dividend")),
         dbc.NavItem(dbc.NavLink("Analysis", href="/analysis")),
         dbc.NavItem(dbc.NavLink("Export",id="export-button", href="/")),
@@ -131,7 +131,7 @@ app.layout = serve_layout
     Input(component_id='url', component_property='pathname')
 )
 def display_page(pathname):
-    if pathname == '/dashboard':
+    if pathname == '/trading':
         layout = dashboard.layout
     elif pathname == "/refresh":
         layout =  portfolio.layout
