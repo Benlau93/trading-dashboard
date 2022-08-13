@@ -3,19 +3,26 @@ from dash import dcc
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 from app import app
-from apps import dashboard, portfolio, add, analysis, dividend
+from apps import dashboard, portfolio, add, analysis, dividend, watchlist
 from datetime import date
 import requests
 import pandas as pd
-import os
 
 # building the navigation bar
 navbar = dbc.NavbarSimple(
     children=[
         dbc.NavItem(dbc.NavLink("Portfolio", href="/")),
-        dbc.NavItem(dbc.NavLink("Trading", href="/trading")),
-        dbc.NavItem(dbc.NavLink("Dividend", href="/dividend")),
-        dbc.NavItem(dbc.NavLink("Analysis", href="/analysis")),
+        dbc.NavItem(dbc.NavLink("Watchlist", href="/watchlist")),
+        dbc.DropdownMenu(
+            children=[
+                dbc.DropdownMenuItem("Trades", href="/trading"),
+                dbc.DropdownMenuItem("Dividend", href="/dividend"),
+                dbc.DropdownMenuItem("Historical", href="/analysis"),
+            ],
+            nav=True,
+            in_navbar=True,
+            label="Analysis"
+        ),
         dbc.NavItem(dbc.NavLink("Export",id="export-button", href="/")),
         dcc.Download(id="download-dataframe-xlsx"),
 
@@ -141,6 +148,8 @@ def display_page(pathname):
         layout = dividend.layout
     elif pathname == "/analysis":
         layout =  analysis.layout
+    elif pathname == "/watchlist":
+        layout = watchlist.layout
     else:
         layout = portfolio.layout
 
