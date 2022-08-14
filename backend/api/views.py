@@ -2,18 +2,16 @@ from rest_framework import serializers, status
 from rest_framework.views import APIView
 from datetime import date
 from datetime import datetime
-from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer, HistoricalSerializer, DividendSerializer
+from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer, HistoricalSerializer, DividendSerializer, WatchlistSerializer
 from rest_framework.response import Response
-from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition, HistoricalPL, Dividend
+from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition, HistoricalPL, Dividend, Watchlist
 import yfinance as yf
 import numpy as np
 import pandas as pd
-import os
 
 class DownloadViews(APIView):
 
     def post(self, request, format=None):
-        # data = request.data.dict()
         data = request.data
         df = yf.download(tickers=data["symbol"], start=data["start_date"], end=date.today(),interval=data["interval"])
         df["Symbol"] = data["symbol"]
@@ -422,4 +420,51 @@ class RefreshDividend(APIView):
 
         return Response(status=status.HTTP_200_OK)
 
+class WatchlistView(APIView):
+    # serializer
+    watch_serializer = WatchlistSerializer
+
+    # get watchlist data from db
+    def get(self, request, format=None):
+        data = Watchlist.objects.all()
+        serializer = self.watch_serializer(data, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    
+    # add to watchlist
+    def post(self, request, format=None):
+        data = request.data
+        symbol = data["symbol"].upper()
+
+        # get ticker from yahoo finance
+        ticker = yf.Ticker(symbol)
+
+        # check if ticker is valid
+        if len(ticker.info) <= 3:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+        # add name to data
+        data.update({"name":ticker.info["shortName"]})
+
+        # check if ticker is present in model
+        exist  = Watchlist.objects.filter(pk=symbol)
+        if len(exist) == 1:
+            exist.delete()
+
+        watch_serialized = self.watch_serializer(data=data)
+        if watch_serialized.is_valid():
+            watch_serialized.save()
+
+            return Response(status=status.HTTP_200_OK)
+        else:
+            return Response(status=status.HTTP_400_BAD_REQUEST)
+
+    # delete from watchlist
+    def delete(self, request, format=None):
+        pk = request.data["pk"]
+        watch = Watchlist.objects.filter(pk=pk)
+
+        if len(watch) == 1:
+            watch.delete()
         
+        return Response(status=status.HTTP_200_OK)
