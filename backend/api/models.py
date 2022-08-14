@@ -1,3 +1,4 @@
+from pickle import FALSE
 from django.db import models
 
 # Create your models here.
@@ -64,3 +65,9 @@ class Dividend(models.Model):
     dividend_adjusted = models.FloatField(blank=False)
     dividend_per = models.FloatField(blank=False)
 
+class Watchlist(models.Model):
+    symbol = models.CharField(max_length=50, primary_key=True)
+    name = models.CharField(max_length=100, blank=False)
+    current_price = models.FloatField(blank=False)
+    target_price = models.FloatField(blank=False)
+    direction = models.CharField(max_length=10, choices=[("Above","Above"), ("Below","Below")], blank=False)
