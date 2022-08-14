@@ -11,4 +11,18 @@ from app import app
 # define template used
 TEMPLATE = "plotly_white"
 
-layout = html.Div([html.H1("WATCHLIST")])
+layout = html.Div([
+        dbc.Container([
+            dbc.Row([
+                dcc.Location(id='watch-refresh-url', refresh=True),
+                dbc.Col(html.Div( className="mt-0 mb-4"))
+            ]),
+            dbc.Row([
+                dbc.Col(dbc.Button("+ Ticker",id="add-watch-button",color="info"),width=1),
+                dbc.Col(dbc.Button("- Ticker",id="del-watch-button",color="warning"),width=1)
+            ], align="start", justify="end"),
+            dbc.Row([
+                dbc.Col(html.Div( className="mt-0 mb-4"))
+            ]),
+    ])
+])
