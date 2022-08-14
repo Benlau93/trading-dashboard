@@ -280,7 +280,7 @@ class RefreshViews(APIView):
         min_date = open_position["date_open"].min()
 
         # # download yfinance price
-        data = yf.download(symbol_list, start = min_date, interval="1d", group_by="ticker").reset_index()
+        data = yf.download(symbol_list, start = min_date, interval="1d", group_by="ticker", progress=False).reset_index()
         data = data.melt(id_vars="Date", var_name=["symbol","OHLC"], value_name="price")
         data = data[data["OHLC"]=="Close"].drop(["OHLC"],axis=1)
 
