@@ -3,7 +3,7 @@ from dash import dcc
 import dash_bootstrap_components as dbc
 from dash.dependencies import Input, Output, State
 from app import app
-from apps import dashboard, portfolio, add, analysis, dividend, watchlist
+from apps import dashboard, portfolio, add, analysis, dividend, watchlist, add_watchlist
 from datetime import date
 import requests
 import pandas as pd
@@ -150,6 +150,8 @@ def display_page(pathname):
         layout =  analysis.layout
     elif pathname == "/watchlist":
         layout = watchlist.layout
+    elif pathname == "/watchlist/add":
+        layout = add_watchlist.layout
     else:
         layout = portfolio.layout
 

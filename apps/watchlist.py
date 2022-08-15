@@ -18,7 +18,7 @@ layout = html.Div([
                 dbc.Col(html.Div( className="mt-0 mb-4"))
             ]),
             dbc.Row([
-                dbc.Col(dbc.Button("+ Ticker",id="add-watch-button",color="info"),width=1),
+                dbc.Col(dbc.Button("+ Ticker",id="add-watch-button",href="/watchlist/add",color="info"),width=1),
                 dbc.Col(dbc.Button("- Ticker",id="del-watch-button",color="warning"),width=1)
             ], align="start", justify="end"),
             dbc.Row([
