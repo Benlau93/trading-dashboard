@@ -68,5 +68,6 @@ class Dividend(models.Model):
 class Watchlist(models.Model):
     symbol = models.CharField(max_length=50, primary_key=True)
     name = models.CharField(max_length=100, blank=False)
+    current_price = models.FloatField()
     target_price = models.FloatField(blank=False)
     direction = models.CharField(max_length=10, choices=[("Above","Above"), ("Below","Below")], blank=False)

@@ -443,13 +443,18 @@ class WatchlistView(APIView):
         if len(ticker.info) <= 3:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
-        # add name to data
-        data.update({"name":ticker.info["shortName"]})
-
         # check if ticker is present in model
         exist  = Watchlist.objects.filter(pk=symbol)
         if len(exist) == 1:
             exist.delete()
+
+        # get latest price
+        current_price = ticker.history(period="3d")["Close"].reset_index()
+        current_price = current_price[current_price["Date"]==current_price["Date"].max()]["Close"].iloc[0]
+
+         # add to data
+        data.update({"name":ticker.info["shortName"],
+                    "current_price":current_price})
 
         watch_serialized = self.watch_serializer(data=data)
         if watch_serialized.is_valid():
@@ -468,3 +473,10 @@ class WatchlistView(APIView):
             watch.delete()
         
         return Response(status=status.HTTP_200_OK)
+
+class WatchlistRefreshView(APIView):
+    # serializer
+    watch_serializer = WatchlistSerializer
+
+    def get(self, request, format=None):
+        pass
