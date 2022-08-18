@@ -211,12 +211,12 @@ def generate_transaction(data, open_position, id):
 
     # get transactional data
     if id == None or len(id) == 0:
-        df_ = df_.sort_values("Date").copy()
+        df_ = df_.sort_values("Date", ascending=False).copy()
     else:
         id = id[0].split("|")
         ticker, start = id[0], id[1]
         start = pd.to_datetime(start,format="%Y-%m-%d")
-        df_ = df_[(df_["Symbol"]==ticker) & (df_["Date"] >= start)].sort_values("Date").copy()
+        df_ = df_[(df_["Symbol"]==ticker) & (df_["Date"] >= start)].sort_values("Date", ascending=False).copy()
 
     # formatting
     df_["Date"] = df_["Date"].dt.date
