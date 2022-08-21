@@ -480,8 +480,17 @@ class WatchlistRefreshView(APIView):
 
     def get(self, request, format=None):
         # get all ticker
-        # symbols = Watchlist.objects.all().values("symbol")
-        # symbols = pd.DataFrame(symbols)["symbol"].unique()
-        # print(symbols)
+        watchlist_df = Watchlist.objects.all().values()
+        watchlist_df = pd.DataFrame(watchlist_df)
+        symbol_list = " ".join(watchlist_df["symbol"].unique())
+
+        # download yfinance price
+        data = yf.download(symbol_list, period="5d", group_by="ticker", progress=False).reset_index()
+        data = data.melt(id_vars="Date", var_name=["symbol","OHLC"], value_name="price")
+        data = data[data["OHLC"]=="Close"].drop(["OHLC"],axis=1)
+        
+        # get latest date for each symbol
+        data = data.sort_values(["symbol","Date"]).groupby("symbol").tail(1)
+        print(data)
 
         return Response(status=status.HTTP_200_OK)
