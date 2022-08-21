@@ -87,12 +87,3 @@ class WatchlistSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return Watchlist.objects.create(**validated_data)
-
-    def update(self, instance, validated_data):
-        instance.symbol = validated_data.get('symbol', instance.symbol)
-        instance.name = validated_data.get('name', instance.name)
-        instance.current_price = validated_data.get('current_price', instance.current_price)
-        instance.target_price = validated_data.get('target_price', instance.target_price)
-        instance.direction = validated_data.get('direction', instance.direction)
-        instance.save()
-        return instance
