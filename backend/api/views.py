@@ -433,7 +433,7 @@ class WatchlistView(APIView):
     
     # add to watchlist
     def post(self, request, format=None):
-        data = request.data
+        data = request.data.dict()
         symbol = data["symbol"].upper()
 
         # get ticker from yahoo finance
@@ -479,4 +479,9 @@ class WatchlistRefreshView(APIView):
     watch_serializer = WatchlistSerializer
 
     def get(self, request, format=None):
-        pass
+        # get all ticker
+        # symbols = Watchlist.objects.all().values("symbol")
+        # symbols = pd.DataFrame(symbols)["symbol"].unique()
+        # print(symbols)
+
+        return Response(status=status.HTTP_200_OK)

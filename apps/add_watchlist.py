@@ -53,7 +53,7 @@ form = dbc.Form([
     price_input,
     direction_input,
     button
-], id="form")
+], id="form-watch")
 
 layout = html.Div([
     html.Div(id="form-alert-watch",style={"font-size":"large", "font-family": "Arial, Helvetica, sans-serif"}),
@@ -73,3 +73,29 @@ layout = html.Div([
 
     ])
 ], style={"display":"block","text-align":"center"})
+
+
+@app.callback(
+    Output(component_id="form-alert-watch", component_property="children"),
+    Output(component_id="form-alert-watch", component_property="className"),
+    Output(component_id="sym-input-watch", component_property="value"),
+    Output(component_id="price-input-watch", component_property="value"),
+    Output(component_id="direction-input-watch", component_property="value"),
+    Input(component_id="form-watch", component_property="n_submit"),
+    State(component_id="sym-input-watch", component_property="value"),
+    State(component_id="price-input-watch", component_property="value"),
+    State(component_id="direction-input-watch", component_property="value"),
+    prevent_initial_call=True,
+)
+def submit_form(n_submit, sym, price, direction):
+    if n_submit != None:
+        data = {
+                "symbol":sym,
+                "target_price":price,
+                "direction":direction}
+
+        response = requests.post("http://127.0.0.1:8000/api/watchlist",data=data)
+        if response.status_code == 200:
+            return dbc.Alert(f"Successfully added {sym} into Watchlist", color="Primary"), "alert alert-success", None, None, "Below"
+        else:
+            return dbc.Alert(f"Failed to add {sym} into Watchlist", color="danger"), "alert alert-danger", None, None, "Below"
