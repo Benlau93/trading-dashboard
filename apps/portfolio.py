@@ -10,9 +10,8 @@ from dash.dependencies import Input, Output, State
 from dash import dash_table
 from dash.dash_table.Format import Format,Scheme
 from app import app
-import requests
 import warnings
-import numpy as np
+import requests
 
 warnings.filterwarnings("ignore")
 
@@ -466,7 +465,7 @@ def update_ticker_dropdown(value, open_position):
 )
 def update_graph(view, value, type, ticker_list, open_position, historical):
     if open_position == None or historical == None:
-        return None, None, None, None, None
+        return None, None, None, None, None, None
 
     open_position = pd.DataFrame(open_position)
     for dat in ["Date","Date_Open"]:
