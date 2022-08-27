@@ -108,7 +108,11 @@ def load_data():
     dividend_df = pd.merge(dividend_df, tickerinfo[["symbol","currency"]], on="symbol")
     dividend_df.columns = dividend_df.columns.str.capitalize()
 
-    return data.to_dict(orient="records"), closed.to_dict(orient="records"), open_position.to_dict(orient="records"), historical.to_dict(orient="records"), dividend_df.to_dict(orient="records")
+    # import watchlist
+    watchlist_df = requests.get("http://127.0.0.1:8000/api/watchlist")
+    watchlist_df = pd.DataFrame.from_dict(watchlist_df.json())
+
+    return data.to_dict(orient="records"), closed.to_dict(orient="records"), open_position.to_dict(orient="records"), historical.to_dict(orient="records"), dividend_df.to_dict(orient="records"), watchlist_df.to_dict(orient="records")
 
 
         
@@ -124,7 +128,8 @@ def serve_layout():
         dcc.Store(id="closed-store"),
         dcc.Store(id="open-store"),
         dcc.Store(id="historical-store"),
-        dcc.Store(id="dividend-store")
+        dcc.Store(id="dividend-store"),
+        dcc.Store(id="watchlist-store")
     ])
 app.layout = serve_layout
 
@@ -135,6 +140,7 @@ app.layout = serve_layout
     Output(component_id='open-store', component_property='data'),
     Output(component_id='historical-store', component_property='data'),
     Output(component_id='dividend-store', component_property='data'),
+    Output(component_id="watchlist-store", component_property="data"),
     Input(component_id='url', component_property='pathname')
 )
 def display_page(pathname):
@@ -157,9 +163,9 @@ def display_page(pathname):
 
     # load data
     print("RETRIEVE DATA FROM BACKEND API")
-    data, closed, open_position, historical, dividend_df = load_data()
+    data, closed, open_position, historical, dividend_df, watchlist_df = load_data()
 
-    return layout, data, closed, open_position, historical, dividend_df
+    return layout, data, closed, open_position, historical, dividend_df, watchlist_df
     
 @app.callback(
     Output(component_id="download-dataframe-xlsx", component_property="data"),
