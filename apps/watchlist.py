@@ -14,20 +14,16 @@ import requests
 # define template used
 TEMPLATE = "plotly_white"
 
-# import watchlist
-watchlist_df = requests.get("http://127.0.0.1:8000/api/watchlist")
-watchlist_df = pd.DataFrame.from_dict(watchlist_df.json())
-
 def generate_table(df):
     df_ = df.copy()
 
     # get % from target
-    df_["DIFF"] = (df_["target_price"] - df_["current_price"]) / df_["current_price"]
+    df_["DIFF"] = (df_["Target_price"] - df_["Current_price"]) / df_["Current_price"]
     df_["SORT"] = df_["DIFF"].map(lambda x: abs(x))
     
     def achieved_target(row):
-        achieved =  (row["direction"]== "Below" and row["DIFF"] >0) or (row["direction"] == "Above" and row["DIFF"]<0)
-        return "True" if achieved else "False"
+        achieved =  (row["Direction"]== "Below" and row["DIFF"] >0) or (row["Direction"] == "Above" and row["DIFF"]<0)
+        return "Yes" if achieved else "No"
 
     df_["REACHED"] = df_.apply(achieved_target, axis=1)
 
@@ -41,12 +37,12 @@ def generate_table(df):
     table_fig = dash_table.DataTable(
         id="table-watchlist",
         columns = [
-            dict(id="symbol", name="Symbol"),
-            dict(id="name", name="Name"),
-            dict(id="current_price", name="Current Price",type="numeric", format=money),
-            dict(id="target_price", name="Target Price",type="numeric",format=money),
+            dict(id="Symbol", name="Symbol"),
+            dict(id="Name", name="Name"),
+            dict(id="Current_price", name="Current Price",type="numeric", format=money),
+            dict(id="Target_price", name="Target Price",type="numeric",format=money),
             dict(id="DIFF", name="% from Target", type="numeric", format=percentage),
-            dict(id="REACHED", name="Achieved")
+            dict(id="REACHED", name="Hit Target")
         ],
         data=df_.to_dict('records'),
         sort_action="native",
@@ -64,9 +60,8 @@ def generate_table(df):
 
     return table_fig
 
-table_fig = generate_table(watchlist_df)
-
 layout = html.Div([
+        dcc.Interval(id="placeholder-input", interval=1, n_intervals=0, max_intervals=0),
         dbc.Container([
             dbc.Row([
                 dbc.Col(html.Div( className="mt-0 mb-4"))
@@ -79,12 +74,24 @@ layout = html.Div([
                 dbc.Col(html.Div( className="mt-0 mb-4"))
             ]),
             dbc.Row([
-            	dbc.Col(id="table-container-watchlist", children=table_fig, width=10)
+            dbc.Col(dbc.Card(html.H3(children='Watchlist',
+                                 className="text-center text-light bg-dark"), body=True, color="dark")
+                , className="mt-0 mb-4")
+            ]),
+            dbc.Row([
+            	dbc.Col(id="table-container-watchlist", width=10)
         ], align="center", justify="center"),
     ])
 ])
 
-# @app.callback(
-# 	Output(component_id="table-container-watchlist", component_property="children"),
-#     Input()
-# )
+@app.callback(
+	Output(component_id="table-container-watchlist", component_property="children"),
+    Input(component_id="placeholder-input", component_property="n_intervals"),
+    State(component_id="watchlist-store", component_property="data")
+)
+def generate_charts(_,watchlist_df):
+    watchlist_df = pd.DataFrame(watchlist_df)
+
+    table_fig = generate_table(watchlist_df)
+
+    return table_fig
