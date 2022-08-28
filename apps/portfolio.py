@@ -1,9 +1,7 @@
 from dash import html
 from dash import dcc
-from dash.exceptions import PreventUpdate
 import dash_bootstrap_components as dbc
 import pandas as pd
-import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 from dash.dependencies import Input, Output, State
@@ -11,7 +9,6 @@ from dash import dash_table
 from dash.dash_table.Format import Format,Scheme
 from app import app
 import warnings
-import requests
 
 warnings.filterwarnings("ignore")
 
@@ -311,11 +308,8 @@ def generate_waterfall(df, view, value):
     return waterfall_fig
 
 layout = html.Div([
-    dcc.Location(id='refresh-url', refresh=True),
-    html.Div(id="refresh-alert",style={"font-size":"large", "font-family": "Arial, Helvetica, sans-serif","text-align":"center"}),
     dbc.Container([
         dbc.Row([
-            dbc.Col(dbc.Button("Refresh Ticker Price",id="refresh-button",color="warning",style={"margin-top":10,"margin-right":0}),width=2),
             dbc.Col(dbc.Button("Add Transaction",color="success",href="/portfolio/add",style={"margin-top":10, "margin-left":0}),width=2)
         ], align="start", justify="end"),
         dbc.Row([
@@ -511,23 +505,4 @@ def update_table(id, data, open_position):
 
     return transaction_fig
 
-@app.callback(
-    Output(component_id="refresh-alert", component_property="children"),
-    Output(component_id="refresh-alert", component_property="className"),
-    Output(component_id = "refresh-url", component_property = "href"),
-    Input(component_id="refresh-button", component_property="n_clicks"),
-    Input(component_id="refresh-url", component_property="href"),
-    prevent_initial_call=True,
-)
-def refresh_data(n_clicks, url):
 
-    if (n_clicks != None and n_clicks >= 1):
-        response = requests.get("http://127.0.0.1:8000/api/refresh")
-        return_url = "http://127.0.0.1:8050/refresh"
-
-        if response.status_code == 200:
-            return dbc.Alert("Price successfully refreshed", color="Primary"), "alert alert-success", return_url
-        else:
-            return dbc.Alert("Price failed to refresh, please try again later", color="danger"), "alert alert-danger", return_url
-    else:
-        raise PreventUpdate

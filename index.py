@@ -1,12 +1,14 @@
 from dash import html
 from dash import dcc
 import dash_bootstrap_components as dbc
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output
 from app import app
 from apps import dashboard, portfolio, add, analysis, dividend, watchlist, add_watchlist
 from datetime import date
 import requests
 import pandas as pd
+from dash.exceptions import PreventUpdate
+from dash import callback_context
 
 # building the navigation bar
 navbar = dbc.NavbarSimple(
@@ -123,7 +125,13 @@ def load_data():
 def serve_layout():
     return html.Div([
         dcc.Location(id='url', refresh=False),
+        html.Div(id="refresh-alert",style={"font-size":"large", "font-family": "Arial, Helvetica, sans-serif","text-align":"center"}),
         navbar,
+        html.Div(
+            dbc.Row(
+                dbc.Col(dbc.Button("Refresh Dashboard",id="refresh-button",color="warning", href ="http://127.0.0.1:8050/", style={"margin":"5px"}),width=2)
+                , align="start", justify="start")
+            ),
         html.Div(id='page-content'),
 
         dcc.Store(id="data-store"),
@@ -150,8 +158,6 @@ app.layout = serve_layout
 def display_page(pathname):
     if pathname == '/trading':
         layout = dashboard.layout
-    elif pathname == "/refresh":
-        layout =  portfolio.layout
     elif pathname == "/portfolio/add":
         layout =  add.layout
     elif pathname == "/dividend":
@@ -170,6 +176,46 @@ def display_page(pathname):
     data, closed, open_position, historical, dividend_df, watchlist_df = load_data()
 
     return layout, data, closed, open_position, historical, dividend_df, watchlist_df
+
+
+@app.callback(
+    Output(component_id="refresh-alert", component_property="children"),
+    Output(component_id="refresh-alert", component_property="className"),
+    Input(component_id="refresh-button", component_property="n_clicks"),
+    prevent_initial_call=True,
+)
+def refresh_data(n_clicks):
+    changed_id = [p['prop_id'] for p in callback_context.triggered][0]
+    if "refresh-button" in changed_id:
+
+        # refresh data
+        # portfolio
+        response = requests.get("http://127.0.0.1:8000/api/refresh")
+        if response.status_code == 200:
+            print("Updated Portfolio Sucessfully")
+        else:
+            print("Failed to updated Portfolio")
+
+        # dividend
+        dividend_response = requests.get("http://127.0.0.1:8000/api/refresh-dividend")
+        if dividend_response.status_code == 200:
+            print("Updated Dividend Sucessfully")
+        else:
+            print("Failed to update Dividend")
+
+        # watchlist
+        watchlist_response = requests.get("http://127.0.0.1:8000/api/refresh-watchlist")
+        if watchlist_response.status_code == 200:
+            print("Updated Watchlist Sucessfully")
+        else:
+            print("Failed to update Wachtlist")
+
+        if response.status_code == 200:
+            return dbc.Alert("Price successfully refreshed", color="Primary"), "alert alert-success"
+        else:
+            return dbc.Alert("Price failed to refresh, please try again later", color="danger"), "alert alert-danger"
+    else:
+        raise PreventUpdate
     
 @app.callback(
     Output(component_id="download-dataframe-xlsx", component_property="data"),
