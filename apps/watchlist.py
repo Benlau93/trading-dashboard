@@ -9,17 +9,18 @@ from dash.dependencies import Input, Output, State
 from dash import dash_table
 from dash.dash_table.Format import Format,Scheme
 from app import app
-import requests
+import yfinance as yf
 
 # define template used
 TEMPLATE = "plotly_white"
 
 def generate_table(df):
     df_ = df.copy()
+    # get id
+    df_["id"] = df_["Symbol"] + "|" + df_["Target_price"].astype(str)
 
     # get % from target
     df_["DIFF"] = (df_["Target_price"] - df_["Current_price"]) / df_["Current_price"]
-    df_["SORT"] = df_["DIFF"].map(lambda x: abs(x))
     
     def achieved_target(row):
         achieved =  (row["Direction"]== "Below" and row["DIFF"] >0) or (row["Direction"] == "Above" and row["DIFF"]<0)
@@ -28,6 +29,7 @@ def generate_table(df):
     df_["REACHED"] = df_.apply(achieved_target, axis=1)
 
     # sort
+    df_["SORT"] = df_["DIFF"].map(lambda x: abs(x))
     df_ = df_.sort_values("SORT")
 
     # formatting
@@ -60,6 +62,42 @@ def generate_table(df):
 
     return table_fig
 
+
+def generate_candle(df, target):
+    candle_fig = go.Figure(data=[
+        go.Candlestick(
+            x = df["Date"],
+            open = df["Open"],
+            high = df["High"],
+            low = df["Low"],
+            close = df["Close"]
+        , name="Price")
+    ])
+
+
+    # add 10 and 20 SMA
+    df["SMA10"] = df["Close"].rolling(10).mean()
+    df["SMA50"] = df["Close"].rolling(50).mean()
+
+    candle_fig.add_trace(
+        go.Scatter(x=df["Date"], y=df["SMA10"],line=dict(color="purple", width=2), opacity=0.4, name="SMA-10")
+    )
+
+    candle_fig.add_trace(
+        go.Scatter(x=df["Date"], y=df["SMA50"],line=dict(color="blue", width=2), opacity=0.4, name="SMA-50")
+    )
+
+    # add target price
+    candle_fig.add_hline(y=target, line_dash = "dash", annotation_text = "Target Price", annotation_position = "top right")
+
+    candle_fig.update_layout(
+                            xaxis = dict(showgrid=False),
+                            xaxis_rangeslider_visible=False,
+                            height=500,
+                            showlegend=False,
+                            template=TEMPLATE)
+    return candle_fig
+
 layout = html.Div([
         dcc.Interval(id="placeholder-input", interval=1, n_intervals=0, max_intervals=0),
         dbc.Container([
@@ -81,6 +119,15 @@ layout = html.Div([
             dbc.Row([
             	dbc.Col(id="table-container-watchlist", width=10)
         ], align="center", justify="center"),
+        html.Br(),
+        html.Div(id="candle-container", children = [
+            dbc.Row([
+            dbc.Col(html.H4( className="text-center", id="watchlist-chart-title"),
+                            width=6)],align="end", justify="center"),
+            dbc.Row(
+                dbc.Col(children = [dcc.Graph(id="watchlist-candle")])
+            )]
+        ),
     ])
 ])
 
@@ -95,3 +142,24 @@ def generate_charts(_,watchlist_df):
     table_fig = generate_table(watchlist_df)
 
     return table_fig
+
+
+@app.callback([
+    Output(component_id="candle-container", component_property="style"),
+    Output(component_id="watchlist-candle", component_property="figure"),
+    Output(component_id="watchlist-chart-title", component_property="children"),
+    Input(component_id="table-watchlist", component_property="selected_row_ids"),
+])
+def update_ohlc(row_id):
+    if row_id == None:
+        return {"display":"none"}, go.Figure(), None
+
+    row_id = row_id[0].split("|")
+    symbol, target = row_id[0], float(row_id[1])
+
+    data =  yf.download(tickers=symbol, period = "6mo",interval="1d", progress=False)
+    data = data.reset_index() 
+
+    ohlc_fig = generate_candle(data, target)
+
+    return {"display":"block"}, ohlc_fig, symbol
