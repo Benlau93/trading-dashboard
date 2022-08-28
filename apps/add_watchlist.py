@@ -69,7 +69,12 @@ layout = html.Div([
                 form
             ]))
             ,width={"size":8,"offset":2})
-        ])
+        ]),
+        html.Br(),
+        html.Br(),
+        dbc.Row(
+            dbc.Col(dbc.Button("Back to Watchlist", href="http://127.0.0.1:8050/watchlist", color ="info"), width=3)
+        , align="center", justify = "center")
 
     ])
 ], style={"display":"block","text-align":"center"})
@@ -90,12 +95,12 @@ layout = html.Div([
 def submit_form(n_submit, sym, price, direction):
     if n_submit != None:
         data = {
-                "symbol":sym,
+                "symbol":sym.upper(),
                 "target_price":price,
                 "direction":direction}
 
         response = requests.post("http://127.0.0.1:8000/api/watchlist",data=data)
         if response.status_code == 200:
-            return dbc.Alert(f"Successfully added {sym} into Watchlist", color="Primary"), "alert alert-success", None, None, "Below"
+            return dbc.Alert(f"Successfully added {sym.upper()} into Watchlist", color="Primary"), "alert alert-success", None, None, "Below"
         else:
-            return dbc.Alert(f"Failed to add {sym} into Watchlist", color="danger"), "alert alert-danger", None, None, "Below"
+            return dbc.Alert(f"Failed to add {sym.upper()} into Watchlist", color="danger"), "alert alert-danger", None, None, "Below"

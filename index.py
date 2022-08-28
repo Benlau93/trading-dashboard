@@ -13,15 +13,16 @@ navbar = dbc.NavbarSimple(
     children=[
         dbc.NavItem(dbc.NavLink("Portfolio", href="/")),
         dbc.NavItem(dbc.NavLink("Watchlist", href="/watchlist")),
-        dbc.NavItem(dbc.NavLink("Dividend", href="/dividend")),
         dbc.DropdownMenu(
             children=[
-                dbc.DropdownMenuItem("Trades", href="/trading"),
-                dbc.DropdownMenuItem("Historical", href="/analysis"),
+                dbc.DropdownMenuItem("Dividend", href="/dividend"),
+                dbc.DropdownMenuItem("Historical Trades", href="/trading"),
+                dbc.DropdownMenuItem("Trade Anaylsis", href="/analysis"),
+
             ],
             nav=True,
             in_navbar=True,
-            label="Analysis"
+            label="History"
         ),
         dbc.NavItem(dbc.NavLink("Export",id="export-button", href="/")),
         dcc.Download(id="download-dataframe-xlsx"),

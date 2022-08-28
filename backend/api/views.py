@@ -434,7 +434,8 @@ class WatchlistView(APIView):
     # add to watchlist
     def post(self, request, format=None):
         data = request.data.dict()
-        symbol = data["symbol"].upper()
+        data["symbol"] = data["symbol"].upper()
+        symbol = data["symbol"]
 
         # get ticker from yahoo finance
         ticker = yf.Ticker(symbol)

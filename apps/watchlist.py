@@ -8,8 +8,10 @@ import plotly.graph_objects as go
 from dash.dependencies import Input, Output, State
 from dash import dash_table
 from dash.dash_table.Format import Format,Scheme
+from dash import callback_context
 from app import app
 import yfinance as yf
+import requests
 
 # define template used
 TEMPLATE = "plotly_white"
@@ -53,11 +55,31 @@ def generate_table(df):
         'height': 'auto',
         'minWidth': '150px', 'width': '150px', 'maxWidth': '150px',
         'whiteSpace': 'normal'},
-        style_table={'overflowX': 'scroll'},
         style_as_list_view=True,
         page_action="native",
         page_current= 0,
         page_size= 15,
+        style_data_conditional=(
+            [
+                {
+                    "if":{
+                        "column_id":"REACHED",
+                        "filter_query":"{REACHED} = 'No'"
+                    },
+                    "backgroundColor":"crimson",
+                    "color":"white"
+                },
+
+                {
+                    "if":{
+                        "column_id":"REACHED",
+                        "filter_query":"{REACHED} = 'Yes'"
+                    },
+                    "backgroundColor":"#2E8B57",
+                    "color":"white"
+                }
+            ]
+        )
     )
 
     return table_fig
@@ -73,19 +95,6 @@ def generate_candle(df, target):
             close = df["Close"]
         , name="Price")
     ])
-
-
-    # add 10 and 20 SMA
-    df["SMA10"] = df["Close"].rolling(10).mean()
-    df["SMA50"] = df["Close"].rolling(50).mean()
-
-    candle_fig.add_trace(
-        go.Scatter(x=df["Date"], y=df["SMA10"],line=dict(color="purple", width=2), opacity=0.4, name="SMA-10")
-    )
-
-    candle_fig.add_trace(
-        go.Scatter(x=df["Date"], y=df["SMA50"],line=dict(color="blue", width=2), opacity=0.4, name="SMA-50")
-    )
 
     # add target price
     candle_fig.add_hline(y=target, line_dash = "dash", annotation_text = "Target Price", annotation_position = "top right")
@@ -105,8 +114,7 @@ layout = html.Div([
                 dbc.Col(html.Div( className="mt-0 mb-4"))
             ]),
             dbc.Row([
-                dbc.Col(dbc.Button("+ Ticker",id="add-watch-button",href="/watchlist/add",color="success"),width=1),
-                dbc.Col(dbc.Button("- Ticker",id="del-watch-button",color="warning"),width=1)
+                dbc.Col(dbc.Button("Add Watchlist",id="add-watch-button",href="/watchlist/add",color="success"),width=2),
             ], align="start", justify="end"),
             dbc.Row([
                 dbc.Col(html.Div( className="mt-0 mb-4"))
@@ -119,13 +127,17 @@ layout = html.Div([
             dbc.Row([
             	dbc.Col(id="table-container-watchlist", width=10)
         ], align="center", justify="center"),
-        html.Br(),
-        html.Div(id="candle-container", children = [
+            html.Br(),
             dbc.Row([
-            dbc.Col(html.H4( className="text-center", id="watchlist-chart-title"),
+                dbc.Col(dbc.Button("Delete",id="remove-watch-button",color="danger", href = "http://127.0.0.1:8050/watchlist"),width=2),
+            ], align="start", justify="end"),
+            html.Br(),
+            html.Div(id="candle-container", children = [
+                dbc.Row([
+                    dbc.Col(html.H4( className="text-center", id="watchlist-chart-title"),
                             width=6)],align="end", justify="center"),
-            dbc.Row(
-                dbc.Col(children = [dcc.Graph(id="watchlist-candle")])
+                dbc.Row(
+                    dbc.Col(children = [dcc.Graph(id="watchlist-candle")])
             )]
         ),
     ])
@@ -149,17 +161,26 @@ def generate_charts(_,watchlist_df):
     Output(component_id="watchlist-candle", component_property="figure"),
     Output(component_id="watchlist-chart-title", component_property="children"),
     Input(component_id="table-watchlist", component_property="selected_row_ids"),
-])
-def update_ohlc(row_id):
+    Input(component_id="remove-watch-button", component_property="n_clicks")
+],  prevent_initial_call=True,)
+def update_ohlc(row_id, clicks):
+
     if row_id == None:
         return {"display":"none"}, go.Figure(), None
+    else:
+        row_id = row_id[0].split("|")
+        symbol, target = row_id[0], float(row_id[1])
 
-    row_id = row_id[0].split("|")
-    symbol, target = row_id[0], float(row_id[1])
+        # check if delete button was clicked
+        changed_id = [p['prop_id'] for p in callback_context.triggered][0]
+        if "remove-watch-button" in changed_id:
+            data_del = {"pk":symbol}
+            response = requests.delete("http://127.0.0.1:8000/api/watchlist", data=data_del)
+            return {"display":"none"}, go.Figure(), None
 
-    data =  yf.download(tickers=symbol, period = "6mo",interval="1d", progress=False)
-    data = data.reset_index() 
+        data =  yf.download(tickers=symbol, period = "6mo",interval="1d", progress=False)
+        data = data.reset_index() 
 
-    ohlc_fig = generate_candle(data, target)
+        ohlc_fig = generate_candle(data, target)
 
-    return {"display":"block"}, ohlc_fig, symbol
+        return {"display":"block"}, ohlc_fig, symbol
