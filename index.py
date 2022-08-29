@@ -208,7 +208,7 @@ def refresh_data(n_clicks):
         if watchlist_response.status_code == 200:
             print("Updated Watchlist Sucessfully")
         else:
-            print("Failed to update Wachtlist")
+            print("Failed to update Watchlist")
 
         if response.status_code == 200:
             return dbc.Alert("Price successfully refreshed", color="Primary"), "alert alert-success"
