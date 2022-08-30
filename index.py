@@ -124,12 +124,12 @@ def load_data():
 # embedding the navigation bar
 def serve_layout():
     return html.Div([
-        dcc.Location(id='url', refresh=False),
+        dcc.Location(id='url', refresh=True),
         html.Div(id="refresh-alert",style={"font-size":"large", "font-family": "Arial, Helvetica, sans-serif","text-align":"center"}),
         navbar,
         html.Div(
             dbc.Row(
-                dbc.Col(dbc.Button("Refresh Dashboard",id="refresh-button",color="warning", href ="http://127.0.0.1:8050/", style={"margin":"5px"}),width=2)
+                dbc.Col(dbc.Button("Refresh Dashboard",id="refresh-button",color="warning", style={"margin":"5px"}),width=2)
                 , align="start", justify="start")
             ),
         html.Div(id='page-content'),
@@ -181,7 +181,9 @@ def display_page(pathname):
 @app.callback(
     Output(component_id="refresh-alert", component_property="children"),
     Output(component_id="refresh-alert", component_property="className"),
-    Input(component_id="refresh-button", component_property="n_clicks")
+    Output(component_id='url', component_property='pathname'),
+    Input(component_id="refresh-button", component_property="n_clicks"),
+    prevent_initial_call=True
 )
 def refresh_data(n_clicks):
     changed_id = [p['prop_id'] for p in callback_context.triggered][0]
@@ -210,9 +212,9 @@ def refresh_data(n_clicks):
             print("Failed to update Watchlist")
 
         if response.status_code == 200:
-            return dbc.Alert("Price successfully refreshed", color="Primary"), "alert alert-success"
+            return dbc.Alert("Price successfully refreshed", color="Primary"), "alert alert-success", "http://127.0.0.1:8050/"
         else:
-            return dbc.Alert("Price failed to refresh, please try again later", color="danger"), "alert alert-danger"
+            return dbc.Alert("Price failed to refresh, please try again later", color="danger"), "alert alert-danger", "http://127.0.0.1:8050/"
     else:
         raise PreventUpdate
     
