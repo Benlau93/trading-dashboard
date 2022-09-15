@@ -269,31 +269,35 @@ class RefreshViews(APIView):
     def get(self, request, format=None):
 
         # get all open position data
-        open_position = OpenPosition.objects.all().values("symbol","date_open","total_quantity","avg_price","avg_exchange_rate","total_fees","total_value_sgd")
+        open_position = OpenPosition.objects.all().values("symbol","date_open","total_quantity","avg_exchange_rate","total_value_sgd")
         open_position = pd.DataFrame(open_position)
         
         # get list of open position symbol
         symbol_list = open_position["symbol"].unique().tolist()
         symbol_list = " ".join(symbol_list)
 
-        # get earliest date
-        min_date = open_position["date_open"].min()
-
-        # # download yfinance price
-        data = yf.download(symbol_list, start = min_date, interval="1d", group_by="ticker", progress=False).reset_index()
+        # download yfinance price
+        data = yf.download(symbol_list, period = "1y", interval="1d", group_by="ticker", progress=False).reset_index()
         data = data.melt(id_vars="Date", var_name=["symbol","OHLC"], value_name="price")
         data = data[data["OHLC"]=="Close"].drop(["OHLC"],axis=1)
+
+        # download USD exchange rate
+        exchange_rate = yf.download("SGDUSD=X", period = "1y", interval="1d",progress=False)
+        exchange_rate = exchange_rate[["Close"]].reset_index()
+        exchange_rate["latest_exchange_rate"] = exchange_rate["Close"].map(lambda x: 1/x)
+        exchange_rate = exchange_rate.drop("Close", axis=1)
 
         # get daily P/L
         historical = pd.merge(open_position,data,on="symbol").dropna()
         historical = historical[historical["Date"]>=historical["date_open"]].copy()
-        historical["pl_sgd"] = ((historical["price"] * historical["total_quantity"]) * (historical["avg_exchange_rate"])) - historical["total_value_sgd"]
+        historical = pd.merge(historical, exchange_rate, how="left", on="Date")
+        historical["latest_exchange_rate"] = historical["latest_exchange_rate"].fillna(historical["avg_exchange_rate"]) # handle if exchange rate is nan
+        historical["latest_exchange_rate"] = historical.apply(lambda row: row["avg_exchange_rate"] if row["avg_exchange_rate"] == 1 else row["latest_exchange_rate"], axis=1)
+        historical["pl_sgd"] = ((historical["price"] * historical["total_quantity"]) * (historical["latest_exchange_rate"])) - historical["total_value_sgd"]
         historical = historical[["Date","symbol","pl_sgd","price"]].copy()
         historical.columns = historical.columns.str.lower()
-
-       
-
         
+       
         # delete exisitng historical data
         exist = HistoricalPL.objects.all().delete()
 
