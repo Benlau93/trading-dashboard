@@ -251,8 +251,8 @@ def generate_waterfall(df, view, value):
     VIEW = view
     
     # generate total for each type
-    df_ = df[["Type","Symbol","Unrealised P/L","Amount (SGD)"]].rename({"Unrealised P/L":"Value"}, axis=1).sort_values(["Type"])
-    
+    df_ = df[["Type","Symbol","Unrealised P/L","Amount (SGD)","Value"]].rename({"Unrealised P/L":"Value","Value":"Current"}, axis=1).sort_values(["Type"])
+
     # get initial capital
     initial = df_.groupby("Type").sum()[["Amount (SGD)"]].rename({"Amount (SGD)":"Value"}, axis=1).reset_index()
     initial["Symbol"] = "Capital"
@@ -294,7 +294,7 @@ def generate_waterfall(df, view, value):
         )
 
     # update layout
-    y_max = initial["Value"].max() # define max y value
+    y_max = df_.groupby("Type").sum()["Current"].max() # define max y value
     FORMAT = "$,.0f" if value == "Absolute" else ".0%"
     waterfall_fig.update_yaxes(showgrid=False, range = [0, y_max], tickformat=FORMAT)
     
