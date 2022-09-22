@@ -266,9 +266,9 @@ def generate_waterfall(df, view, value):
         pl = pd.merge(initial_, pl, on = "Type")
         initial["Value"] = 1
         pl["Value"] = pl["Value"] / pl["Initial"]
-        y_max = 1 + pl["Value"].max()
+        y_max = 1.05 + pl.groupby("Type").sum()["Value"].max()
     else:
-        y_max = df_.groupby("Type").sum()["Current"].max() # define max y value
+        y_max = df_.groupby("Type").sum()["Current"].max() * 1.01 # define max y value
 
     # get final
     final = df_.groupby("Type").tail(1)
