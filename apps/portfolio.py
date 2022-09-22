@@ -266,6 +266,9 @@ def generate_waterfall(df, view, value):
         pl = pd.merge(initial_, pl, on = "Type")
         initial["Value"] = 1
         pl["Value"] = pl["Value"] / pl["Initial"]
+        y_max = 1 + pl["Value"].max()
+    else:
+        y_max = df_.groupby("Type").sum()["Current"].max() # define max y value
 
     # get final
     final = df_.groupby("Type").tail(1)
@@ -294,7 +297,7 @@ def generate_waterfall(df, view, value):
         )
 
     # update layout
-    y_max = df_.groupby("Type").sum()["Current"].max() # define max y value
+
     FORMAT = "$,.0f" if value == "Absolute" else ".0%"
     waterfall_fig.update_yaxes(showgrid=False, range = [0, y_max], tickformat=FORMAT)
     
