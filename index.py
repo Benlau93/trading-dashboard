@@ -182,7 +182,8 @@ def display_page(pathname):
     Output(component_id="refresh-alert", component_property="children"),
     Output(component_id="refresh-alert", component_property="className"),
     Output(component_id='url', component_property='pathname'),
-    Input(component_id="refresh-button", component_property="n_clicks")
+    Input(component_id="refresh-button", component_property="n_clicks"),
+    prevent_initial_call = True
 )
 def refresh_data(n_clicks):
     changed_id = [p['prop_id'] for p in callback_context.triggered][0]
@@ -214,6 +215,8 @@ def refresh_data(n_clicks):
             return dbc.Alert("Price successfully refreshed", color="Primary"), "alert alert-success", "http://127.0.0.1:8050/"
         else:
             return dbc.Alert("Price failed to refresh, please try again later", color="danger"), "alert alert-danger", "http://127.0.0.1:8050/"
+    else:
+        raise PreventUpdate
 
     
 @app.callback(
