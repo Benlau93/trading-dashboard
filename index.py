@@ -215,8 +215,7 @@ def refresh_data(n_clicks):
             return dbc.Alert("Price successfully refreshed", color="Primary"), "alert alert-success", "http://127.0.0.1:8050/"
         else:
             return dbc.Alert("Price failed to refresh, please try again later", color="danger"), "alert alert-danger", "http://127.0.0.1:8050/"
-    else:
-        raise PreventUpdate
+
     
 @app.callback(
     Output(component_id="download-dataframe-xlsx", component_property="data"),
