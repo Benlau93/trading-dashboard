@@ -182,8 +182,7 @@ def display_page(pathname):
     Output(component_id="refresh-alert", component_property="children"),
     Output(component_id="refresh-alert", component_property="className"),
     Output(component_id='url', component_property='pathname'),
-    Input(component_id="refresh-button", component_property="n_clicks"),
-    prevent_initial_call=True
+    Input(component_id="refresh-button", component_property="n_clicks")
 )
 def refresh_data(n_clicks):
     changed_id = [p['prop_id'] for p in callback_context.triggered][0]
