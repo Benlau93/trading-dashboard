@@ -126,8 +126,18 @@ def generate_candle(df, target):
         , name="Price")
     ])
 
+    # add price indicator
+    color = "red" if target < current_price else "green"
+    current_pos, target_pos = "top" if current_price > target else "bottom", "bottom" if current_price > target else "top"
     # add target price
-    candle_fig.add_hline(y=target, line_dash = "dash", annotation_text = "Target Price", annotation_position = "top right")
+    candle_fig.add_hline(y=target, line_dash = "dash", annotation_text = "Target Price", annotation_position = f"{target_pos} right")
+    # add current price
+    candle_fig.add_hline(y=current_price, annotation_text = "Current Price", annotation_position = f"{current_pos} right")
+    # add box that span between target and current price
+    target_current_per = abs((target - current_price) / current_price)
+    candle_fig.add_hrect(y0=target, y1=current_price, line_width=0, fillcolor=color, opacity=0.1, annotation_text = "{:.2%}".format(target_current_per), annotation_position = "inside",
+                            annotation=dict(font_size=20,font_family="Arial, sans-serif"))
+
 
     candle_fig.update_layout(
                             xaxis = dict(showgrid=False),
