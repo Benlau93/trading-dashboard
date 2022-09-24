@@ -94,7 +94,7 @@ def generate_candle(df, target):
     indicator_fig = go.Figure()
     indicator_fig.add_trace(
         go.Indicator(mode="number", 
-                    title="All Time High (ATH)",
+                    title="ATH (last 6mths)",
                     value=ath, 
                     number = dict(valueformat="$,.2f"),
                     domain={"row":0, "column":0})
