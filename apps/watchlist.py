@@ -17,7 +17,7 @@ TEMPLATE = "plotly_white"
 def generate_table(df):
     df_ = df.copy()
     # get id
-    df_["id"] = df_["Symbol"] + "|" + df_["Target_price"].astype(str)
+    df_["id"] = df_["Symbol"] + "|" + df_["Name"] + "|" + df_["Target_price"].astype(str)
 
     # get % from target
     df_["DIFF"] = (df_["Target_price"] - df_["Current_price"]) / df_["Current_price"]
@@ -88,36 +88,29 @@ def generate_table(df):
 def generate_candle(df, target):
     # get ath
     ath, current_price = df["Close"].max(), df["Close"].iloc[-1]
-    ath_per = (ath - current_price) / ath
 
     # generate indicator
     indicator_fig = go.Figure()
     indicator_fig.add_trace(
-        go.Indicator(mode="number", 
+        go.Indicator(mode="number+delta", 
                     title="ATH (last 6mths)",
+                    delta = {"reference":current_price, "relative":True , "valueformat":".01%"},
                     value=ath, 
                     number = dict(valueformat="$,.2f"),
                     domain={"row":0, "column":0})
     )
 
     indicator_fig.add_trace(
-        go.Indicator(mode="number", 
+        go.Indicator(mode="number+delta", 
                     title="Current Price",
+                    delta = {"reference":ath, "relative":True , "valueformat":".01%"},
                     value=current_price, 
                     number = dict(valueformat="$,.2f"),
                     domain={"row":0, "column":1})
     )
 
-    indicator_fig.add_trace(
-        go.Indicator(mode="number",
-                        value=ath_per,
-                        title = "% From ATH",
-                        number = dict(valueformat=".01%"),
-                        domain={"row":0, "column":2})
-    )
-
     indicator_fig.update_layout(
-        grid= {"rows":1, "columns":3},
+        grid= {"rows":1, "columns":2},
         height=250,
         template=TEMPLATE
     )
@@ -171,12 +164,12 @@ layout = html.Div([
             html.Br(),
             html.Div(id="candle-container", children = [
                 dbc.Row([
-                    dbc.Col(html.H4( className="text-center", id="watchlist-chart-title"),
+                    dbc.Col(html.H3( className="text-center", id="watchlist-chart-title"),
                             width=6)],align="end", justify="center"),
                 dbc.Row(
                     dbc.Col(children = [dcc.Graph(id="watchlist-candle")])),
                 dbc.Row(
-                    dbc.Col(children = [dcc.Graph(id="watchlist-kpi")]))
+                    dbc.Col(children = [dcc.Graph(id="watchlist-kpi")], width=8), align="center", justify="center")
             ]
         ),
     ])
@@ -209,7 +202,7 @@ def update_ohlc(row_id, clicks):
         return {"display":"none"}, go.Figure(), go.Figure(), None
     else:
         row_id = row_id[0].split("|")
-        symbol, target = row_id[0], float(row_id[1])
+        symbol, name,  target = row_id[0], row_id[1] , float(row_id[2])
 
         # check if delete button was clicked
         changed_id = [p['prop_id'] for p in callback_context.triggered][0]
@@ -223,4 +216,4 @@ def update_ohlc(row_id, clicks):
 
         indicator_fig, ohlc_fig = generate_candle(data, target)
 
-        return {"display":"block"}, indicator_fig, ohlc_fig, symbol
+        return {"display":"block"}, indicator_fig, ohlc_fig, name
