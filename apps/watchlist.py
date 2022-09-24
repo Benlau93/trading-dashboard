@@ -27,6 +27,8 @@ def generate_table(df):
         return "Yes" if achieved else "No"
 
     df_["REACHED"] = df_.apply(achieved_target, axis=1)
+    # change % from target to 0 if reached target
+    df_["DIFF"] = df_.apply(lambda row: row["DIFF"] if row["REACHED"]=="No" else 0, axis=1)
 
     # sort
     df_["SORT"] = df_["DIFF"].map(lambda x: abs(x))
