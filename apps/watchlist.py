@@ -86,6 +86,43 @@ def generate_table(df):
 
 
 def generate_candle(df, target):
+    # get ath
+    ath, current_price = df["Close"].max(), df["Close"].iloc[-1]
+    ath_per = (ath - current_price) / ath
+
+    # generate indicator
+    indicator_fig = go.Figure()
+    indicator_fig.add_trace(
+        go.Indicator(mode="number", 
+                    title="All Time High (ATH)",
+                    value=ath, 
+                    number = dict(valueformat="$,.2f"),
+                    domain={"row":0, "column":0})
+    )
+
+    indicator_fig.add_trace(
+        go.Indicator(mode="number", 
+                    title="Current Price",
+                    value=current_price, 
+                    number = dict(valueformat="$,.2f"),
+                    domain={"row":0, "column":1})
+    )
+
+    indicator_fig.add_trace(
+        go.Indicator(mode="number",
+                        value=ath_per,
+                        title = "% From ATH",
+                        number = dict(valueformat=".01%"),
+                        domain={"row":0, "column":2})
+    )
+
+    indicator_fig.update_layout(
+        grid= {"rows":1, "columns":3},
+        height=250,
+        template=TEMPLATE
+    )
+
+    # generate candlestick chart
     candle_fig = go.Figure(data=[
         go.Candlestick(
             x = df["Date"],
@@ -105,7 +142,7 @@ def generate_candle(df, target):
                             height=500,
                             showlegend=False,
                             template=TEMPLATE)
-    return candle_fig
+    return indicator_fig, candle_fig
 
 layout = html.Div([
         dcc.Interval(id="placeholder-input", interval=1, n_intervals=0, max_intervals=0),
@@ -137,8 +174,10 @@ layout = html.Div([
                     dbc.Col(html.H4( className="text-center", id="watchlist-chart-title"),
                             width=6)],align="end", justify="center"),
                 dbc.Row(
-                    dbc.Col(children = [dcc.Graph(id="watchlist-candle")])
-            )]
+                    dbc.Col(children = [dcc.Graph(id="watchlist-candle")])),
+                dbc.Row(
+                    dbc.Col(children = [dcc.Graph(id="watchlist-kpi")]))
+            ]
         ),
     ])
 ])
@@ -158,6 +197,7 @@ def generate_charts(_,watchlist_df):
 
 @app.callback([
     Output(component_id="candle-container", component_property="style"),
+    Output(component_id="watchlist-kpi", component_property="figure"),
     Output(component_id="watchlist-candle", component_property="figure"),
     Output(component_id="watchlist-chart-title", component_property="children"),
     Input(component_id="table-watchlist", component_property="selected_row_ids"),
@@ -166,7 +206,7 @@ def generate_charts(_,watchlist_df):
 def update_ohlc(row_id, clicks):
 
     if row_id == None:
-        return {"display":"none"}, go.Figure(), None
+        return {"display":"none"}, go.Figure(), go.Figure(), None
     else:
         row_id = row_id[0].split("|")
         symbol, target = row_id[0], float(row_id[1])
@@ -181,6 +221,6 @@ def update_ohlc(row_id, clicks):
         data =  yf.download(tickers=symbol, period = "6mo",interval="1d", progress=False)
         data = data.reset_index() 
 
-        ohlc_fig = generate_candle(data, target)
+        indicator_fig, ohlc_fig = generate_candle(data, target)
 
-        return {"display":"block"}, ohlc_fig, symbol
+        return {"display":"block"}, indicator_fig, ohlc_fig, symbol
