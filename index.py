@@ -15,9 +15,9 @@ navbar = dbc.NavbarSimple(
     children=[
         dbc.NavItem(dbc.NavLink("Portfolio", href="/")),
         dbc.NavItem(dbc.NavLink("Watchlist", href="/watchlist")),
+        dbc.NavItem(dbc.NavLink("Watchlist", href="/dividend")),
         dbc.DropdownMenu(
             children=[
-                dbc.DropdownMenuItem("Dividend", href="/dividend"),
                 dbc.DropdownMenuItem("Historical Trades", href="/trading"),
                 dbc.DropdownMenuItem("Trade Anaylsis", href="/analysis"),
 
