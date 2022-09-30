@@ -138,12 +138,19 @@ def generate_candle(df, target):
     candle_fig.add_hrect(y0=target, y1=current_price, line_width=0, fillcolor=color, opacity=0.1, annotation_text = "{:.2%}".format(target_current_per), annotation_position = "inside",
                             annotation=dict(font_size=20,font_family="Arial, sans-serif"))
 
+    # add MA5 for trending and hover
+    df["SMA5"] = df["Close"].rolling(5).mean()
 
+    candle_fig.add_trace(
+        go.Scatter(x=df["Date"], y=df["SMA5"],line=dict(color="purple", width=2), opacity=0.4, name="SMA-5", hovertemplate = [])
+    )
+
+    candle_fig.update_xaxes(rangeslider_visible=False, showgrid=False, showspikes=True, spikecolor="grey", spikethickness=1,spikesnap="cursor", spikemode="across",showline=False, spikedash='solid')
+    candle_fig.update_yaxes(showgrid=False, showspikes=True, spikecolor="grey", spikethickness=1,spikesnap="cursor", spikemode="across",showline=False, spikedash='solid')
     candle_fig.update_layout(
-                            xaxis = dict(showgrid=False),
-                            xaxis_rangeslider_visible=False,
-                            height=500,
-                            showlegend=False,
+                            height=800,
+                            showlegend=True,
+                            hovermode = "y",
                             template=TEMPLATE)
     return indicator_fig, candle_fig
 

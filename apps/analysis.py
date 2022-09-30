@@ -35,24 +35,24 @@ def generate_candle(df, data):
         go.Scatter(x=sell_price["Date"], y=sell_price["Price"], mode="markers",marker=dict(color="orange",size=20, line=dict(color="black", width=2)),marker_symbol="triangle-down", name="Sell")
     )
 
-    # add 10 and 20 SMA
-    df["SMA10"] = df["Close"].rolling(10).mean()
-    df["SMA50"] = df["Close"].rolling(50).mean()
+    # add 5 and 20 SMA
+    df["SMA5"] = df["Close"].rolling(5).mean()
+    df["SMA20"] = df["Close"].rolling(20).mean()
 
     candle_fig.add_trace(
-        go.Scatter(x=df["Date"], y=df["SMA10"],line=dict(color="purple", width=2), opacity=0.4, name="SMA-10")
+        go.Scatter(x=df["Date"], y=df["SMA5"],line=dict(color="purple", width=2), opacity=0.4, name="SMA-5", hovertemplate = [])
     )
 
     candle_fig.add_trace(
-        go.Scatter(x=df["Date"], y=df["SMA50"],line=dict(color="blue", width=2), opacity=0.4, name="SMA-50")
+        go.Scatter(x=df["Date"], y=df["SMA20"],line=dict(color="blue", width=2), opacity=0.4, name="SMA-20", hovertemplate = [])
     )
 
+    candle_fig.update_xaxes(rangeslider_visible=False, showgrid=False, showspikes=True, spikecolor="grey", spikethickness=1,spikesnap="cursor", spikemode="across",showline=False, spikedash='solid')
+    candle_fig.update_yaxes(showgrid=False, showspikes=True, spikecolor="grey", spikethickness=1,spikesnap="cursor", spikemode="across",showline=False, spikedash='solid')
 
-
-    candle_fig.update_layout(
-                            xaxis = dict(showgrid=False),
-                            xaxis_rangeslider_visible=False,
-                            showlegend=False,
+    candle_fig.update_layout(height = 800,
+                            hovermode = "y",
+                            showlegend=True,
                             template=TEMPLATE)
     return candle_fig
 
