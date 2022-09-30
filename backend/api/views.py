@@ -294,7 +294,8 @@ class RefreshViews(APIView):
         historical["latest_exchange_rate"] = historical["latest_exchange_rate"].fillna(historical["avg_exchange_rate"]) # handle if exchange rate is nan
         historical["latest_exchange_rate"] = historical.apply(lambda row: row["avg_exchange_rate"] if row["avg_exchange_rate"] == 1 else row["latest_exchange_rate"], axis=1)
         historical["pl_sgd"] = ((historical["price"] * historical["total_quantity"]) * (historical["latest_exchange_rate"])) - historical["total_value_sgd"]
-        historical = historical[["Date","symbol","pl_sgd","price"]].copy()
+        historical = historical[["Date","symbol","pl_sgd","price"]].reset_index(drop=True)
+        historical["id"] = historical.index
         historical.columns = historical.columns.str.lower()
         
        
@@ -304,6 +305,7 @@ class RefreshViews(APIView):
         # insert into historical model
         df_records = historical.to_dict(orient="records")
         model_instances = [HistoricalPL(
+        id = record["id"],
         date = record["date"],
         symbol = record["symbol"],
         price = record["price"],

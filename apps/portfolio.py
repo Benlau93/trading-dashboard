@@ -9,6 +9,7 @@ from dash import dash_table
 from dash.dash_table.Format import Format,Scheme
 from app import app
 import warnings
+from datetime import timedelta
 
 warnings.filterwarnings("ignore")
 
@@ -114,18 +115,30 @@ def generate_bar(df, view,value):
     return bar_fig
 
 
-def generate_line(df, value, ticker_list):
-    VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
-    FORMAT = "%{y:$,.0f}" if value == "Absolute" else "%{y:.0%}"
+def generate_line(df, ticker_list):
     df_ = df.copy()
+    df_["VALUE"] = df_["Amount (SGD)"] + df_["Unrealised P/L"]
+    VIEW = "VALUE"
+    FORMAT = "%{y:$,.0f}" 
+
+
+    # get endofweek
+    def get_endofweek(date):
+        start = date - timedelta(days = date.weekday())
+        end = start + timedelta(days=6)
+    
+        return end
+
+    df_["endofweek"] = df_["Date"].map(get_endofweek)
+    df_ = df_.sort_values(["Symbol","Date"])
+    
 
     line_fig = go.Figure()
 
     if ticker_list == None or len(ticker_list) ==0:
-        df_ = df_.groupby("Date").sum().reset_index()
-        df_["Unrealised P/L (%)"] = df_["Unrealised P/L"] / df_["Amount (SGD)"]
+        df_ = df_.groupby(["Symbol","endofweek"]).tail(1).groupby("endofweek").sum().reset_index()
         line_fig.add_trace(
-            go.Scatter(x=df_["Date"], y=df_[VIEW], mode="lines+markers"
+            go.Scatter(x=df_["endofweek"], y=df_[VIEW], mode="lines+markers"
             )
         )
         line_fig.update_layout(
@@ -136,11 +149,10 @@ def generate_line(df, value, ticker_list):
         )
     else:
         for t in ticker_list:
-            df_filtered = df_[df_["Symbol"]==t].groupby("Date").sum().reset_index()
-            df_filtered["Unrealised P/L (%)"] = df_filtered["Unrealised P/L"] / df_filtered["Amount (SGD)"]
+            df_filtered = df_[df_["Symbol"]==t].groupby(["Symbol","endofweek"]).tail(1).groupby("endofweek").sum().reset_index()
             
             line_fig.add_trace(
-                go.Scatter(x=df_filtered["Date"], y=df_filtered[VIEW], mode="lines+markers", hovertemplate = "%{x}, " + FORMAT, name=t
+                go.Scatter(x=df_filtered["endofweek"], y=df_filtered[VIEW], mode="lines+markers", hovertemplate = "%{x}, " + FORMAT, name=t
                 )
             )
         line_fig.update_layout(
@@ -376,7 +388,7 @@ layout = html.Div([
         ]),
         dbc.Row([html.Div(style={"margin-top":20})]),
         dbc.Row([
-            dbc.Col(html.H5(children='P/L over Time', className="text-center"),
+            dbc.Col(html.H5(children='Total Value over Time', className="text-center"),
                             width=4, className="mt-4")
         ], justify="center"),
         dbc.Row([
@@ -477,9 +489,9 @@ def update_graph(view, value, type, ticker_list, open_position, historical):
     waterfall_fig = generate_waterfall(open_position, view, value)
 
     if type == None:
-        line_fig = generate_line(historical, value,ticker_list)
+        line_fig = generate_line(historical,ticker_list)
     else:
-        line_fig = generate_line(historical[historical["Type"]==type], value, None)
+        line_fig = generate_line(historical[historical["Type"]==type], None)
 
     indicator_fig = generate_indicator(open_position)
     table_fig = generate_table(open_position)

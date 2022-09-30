@@ -47,6 +47,7 @@ class OpenPosition(models.Model):
 
 
 class HistoricalPL(models.Model):
+    id = models.IntegerField(primary_key = True)
     date = models.DateField(blank=False, db_column="DATE")
     symbol = models.CharField(max_length=20, blank=False, db_column="SYMBOL")
     price = models.FloatField(blank = False, db_column="PRICE", default=0)
