@@ -86,6 +86,30 @@ def generate_pie(df, view, value):
     return pie_fig
 
 
+def generate_trend(df):
+    df_ = df.copy()
+    df_ = df_.groupby(["Endofweek"]).sum()[["Value"]].reset_index()
+
+    # generate charts
+    line_fig = go.Figure()
+
+        
+    line_fig.add_trace(
+        go.Scatter(x=df_["Endofweek"], y=df_["Value"], mode="lines", name="Portfolio Value", hovertemplate="%{x|%d %b %Y}, $%{y:,.0f}")
+    )
+
+    line_fig.update_layout(
+        title = "Portfolio Trend",
+        xaxis = dict(showgrid=False),
+        yaxis = dict(showgrid=False, tickformat = "$,.0f"),
+        hovermode = "y",
+        height=500,
+        template = "presentation"
+    )
+
+    return line_fig
+
+
 
 def generate_bar(df, view,value):
     VIEW = view
@@ -116,7 +140,6 @@ def generate_bar(df, view,value):
 
 def generate_line(df, ticker_list):
     df_ = df.copy()
-    # df_["VALUE"] = df_["Amount (SGD)"] + df_["Unrealised P/L"]
     VIEW = "Value"
     FORMAT = "%{y:$,.0f}" 
 
@@ -321,6 +344,9 @@ layout = html.Div([
             dbc.Col(dcc.Graph(id="main-indicator"), width={"size":8,"offset":2}),
         ],align="center"),
         dbc.Row([
+            dbc.Col(dcc.Graph(id="portfolio-trend"), width=10),
+        ],align="center", justify="center"),
+        dbc.Row([
             dbc.Col(dbc.Card(html.H3(children='BreakDown',
                                  className="text-center text-light bg-dark"), body=True, color="dark")
                 , className="mt-4 mb-4")
@@ -450,6 +476,7 @@ def update_ticker_dropdown(value, open_position):
 
 @app.callback(
     Output(component_id="main-indicator",component_property="figure"),
+    Output(component_id="portfolio-trend",component_property="figure"),
     Output(component_id="pie_open",component_property="figure"),
     Output(component_id="bar_open",component_property="figure"),
     Output(component_id="waterfall_open",component_property="figure"),
@@ -472,13 +499,14 @@ def update_graph(view, value, type, ticker_list, open_position, historical):
 
     historical = pd.DataFrame(historical)
     historical["Endofweek"] = pd.to_datetime(historical["Endofweek"])
-    historical = pd.merge(historical, open_position[["Symbol"]], on="Symbol")
-
-
+    
+    # generate charts
     bar_fig = generate_bar(open_position, view, value)
     pie_fig = generate_pie(open_position, view, value)
     waterfall_fig = generate_waterfall(open_position, view, value)
+    trend_fig = generate_trend(historical)
 
+    historical = pd.merge(historical, open_position[["Symbol"]], on="Symbol")
     if type == None:
         line_fig = generate_line(historical,ticker_list)
     else:
@@ -489,7 +517,7 @@ def update_graph(view, value, type, ticker_list, open_position, historical):
     
 
 
-    return indicator_fig ,pie_fig ,bar_fig, waterfall_fig, line_fig, table_fig
+    return indicator_fig , trend_fig ,pie_fig ,bar_fig, waterfall_fig, line_fig, table_fig
 
 @app.callback(
     Output(component_id="transaction-container-open", component_property="children"),
