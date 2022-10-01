@@ -268,7 +268,7 @@ class RefreshViews(APIView):
     def get(self, request, format=None):
 
         # get all open position data
-        open_position = OpenPosition.objects.all().values("symbol","total_quantity","avg_exchange_rate")
+        open_position = OpenPosition.objects.all().values("symbol","total_quantity","avg_exchange_rate","total_value_sgd")
         open_position = pd.DataFrame(open_position)
         
         # get list of open position symbol
@@ -305,6 +305,8 @@ class RefreshViews(APIView):
         historical = pd.merge(historical, exchange_rate, on="endofweek")
         historical["avg_exchange_rate"] = historical.apply(lambda row: row["avg_exchange_rate"] if row["avg_exchange_rate"] == 1 else row["latest_exchange_rate"], axis=1)
         historical["value"] = historical["total_quantity"] * historical["price"] * historical["avg_exchange_rate"]
+        historical["pl_sgd"] = historical["value"] - historical["total_value_sgd"]
+        historical["pl_per"] = historical["pl_sgd"] / historical["total_value_sgd"]
         
         # delete exisitng historical data
         exist = HistoricalPL.objects.all().filter(endofweek = historical["endofweek"].astype(str).iloc[0]).delete()
@@ -318,6 +320,8 @@ class RefreshViews(APIView):
         symbol = record["symbol"],
         price = record["price"],
         value = record["value"],
+        pl_sgd = record["pl_sgd"],
+        pl_per = record["pl_per"]
         ) for record in df_records]
         HistoricalPL.objects.bulk_create(model_instances)
 

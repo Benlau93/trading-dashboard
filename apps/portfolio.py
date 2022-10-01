@@ -472,6 +472,7 @@ def update_graph(view, value, type, ticker_list, open_position, historical):
 
     historical = pd.DataFrame(historical)
     historical["Endofweek"] = pd.to_datetime(historical["Endofweek"])
+    historical = pd.merge(historical, open_position[["Symbol"]], on="Symbol")
 
 
     bar_fig = generate_bar(open_position, view, value)

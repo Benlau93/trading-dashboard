@@ -91,13 +91,12 @@ def load_data():
     historical = pd.merge(historical, type_map, on="symbol")
     historical.columns = historical.columns.str.capitalize()
     historical["Endofweek"] = pd.to_datetime(historical["Endofweek"], format="%Y-%m-%d")
-    historical = pd.merge(historical,open_position[["Symbol","Amount (SGD)"]], on="Symbol")
-    current_value = historical.sort_values(["Symbol","Endofweek"]).groupby("Symbol").tail(1)[["Symbol","Value","Price"]]
+    historical = historical.rename({"Pl_sgd":"Unrealised P/L","Pl_per":"Unrealised P/L (%)"}, axis=1)
+    # historical = pd.merge(historical,open_position[["Symbol","Amount (SGD)"]], on="Symbol")
+    current_value = historical.sort_values(["Symbol","Endofweek"]).groupby("Symbol").tail(1)[["Symbol","Value","Price","Unrealised P/L (%)","Unrealised P/L"]]
 
     # update open position current price
     open_position = pd.merge(open_position, current_value)
-    open_position["Unrealised P/L"] = open_position["Value"] - open_position["Amount (SGD)"]
-    open_position["Unrealised P/L (%)"] = open_position["Unrealised P/L"] / open_position["Amount (SGD)"]
     
     # import dividend
     dividend_df = requests.get("http://127.0.0.1:8000/api/dividend")
