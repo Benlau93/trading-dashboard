@@ -90,19 +90,15 @@ def load_data():
     historical = pd.DataFrame.from_dict(historical.json())
     historical = pd.merge(historical, type_map, on="symbol")
     historical.columns = historical.columns.str.capitalize()
-    historical["Date"] = pd.to_datetime(historical["Date"], format="%Y-%m-%d")
-    historical = historical.rename({
-        "Pl_sgd":"Unrealised P/L",
-    }, axis=1)
+    historical["Endofweek"] = pd.to_datetime(historical["Endofweek"], format="%Y-%m-%d")
     historical = pd.merge(historical,open_position[["Symbol","Amount (SGD)"]], on="Symbol")
-    current_price = historical.sort_values(["Symbol","Date"]).groupby("Symbol").tail(1)[["Symbol","Unrealised P/L","Price"]]
+    current_value = historical.sort_values(["Symbol","Endofweek"]).groupby("Symbol").tail(1)[["Symbol","Value","Price"]]
 
     # update open position current price
-    open_position = pd.merge(open_position, current_price)
+    open_position = pd.merge(open_position, current_value)
+    open_position["Unrealised P/L"] = open_position["Value"] - open_position["Amount (SGD)"]
     open_position["Unrealised P/L (%)"] = open_position["Unrealised P/L"] / open_position["Amount (SGD)"]
-    open_position["Value"] = open_position["Amount (SGD)"] + open_position["Unrealised P/L"]
-
-
+    
     # import dividend
     dividend_df = requests.get("http://127.0.0.1:8000/api/dividend")
     dividend_df = pd.DataFrame.from_dict(dividend_df.json())

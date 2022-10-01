@@ -19,7 +19,6 @@ TEMPLATE = "plotly_white"
 # main kpi
 def generate_indicator(df):
     df_ = df.copy()
-    
     current_value = df_["Value"].sum()
     unrealised_pl = df_["Unrealised P/L"].sum()
     unrealised_pl_per = df_["Unrealised P/L"].sum() / df_["Amount (SGD)"].sum()
@@ -117,28 +116,19 @@ def generate_bar(df, view,value):
 
 def generate_line(df, ticker_list):
     df_ = df.copy()
-    df_["VALUE"] = df_["Amount (SGD)"] + df_["Unrealised P/L"]
-    VIEW = "VALUE"
+    # df_["VALUE"] = df_["Amount (SGD)"] + df_["Unrealised P/L"]
+    VIEW = "Value"
     FORMAT = "%{y:$,.0f}" 
 
-
-    # get endofweek
-    def get_endofweek(date):
-        start = date - timedelta(days = date.weekday())
-        end = start + timedelta(days=6)
-    
-        return end
-
-    df_["endofweek"] = df_["Date"].map(get_endofweek)
-    df_ = df_.sort_values(["Symbol","Date"])
+    df_ = df_.sort_values(["Symbol","Endofweek"])
     
 
     line_fig = go.Figure()
 
     if ticker_list == None or len(ticker_list) ==0:
-        df_ = df_.groupby(["Symbol","endofweek"]).tail(1).groupby("endofweek").sum().reset_index()
+        df_ = df_.groupby(["Symbol","Endofweek"]).tail(1).groupby("Endofweek").sum().reset_index()
         line_fig.add_trace(
-            go.Scatter(x=df_["endofweek"], y=df_[VIEW], mode="lines+markers"
+            go.Scatter(x=df_["Endofweek"], y=df_[VIEW], mode="lines+markers"
             )
         )
         line_fig.update_layout(
@@ -149,10 +139,10 @@ def generate_line(df, ticker_list):
         )
     else:
         for t in ticker_list:
-            df_filtered = df_[df_["Symbol"]==t].groupby(["Symbol","endofweek"]).tail(1).groupby("endofweek").sum().reset_index()
+            df_filtered = df_[df_["Symbol"]==t].groupby(["Symbol","Endofweek"]).tail(1).groupby("Endofweek").sum().reset_index()
             
             line_fig.add_trace(
-                go.Scatter(x=df_filtered["endofweek"], y=df_filtered[VIEW], mode="lines+markers", hovertemplate = "%{x}, " + FORMAT, name=t
+                go.Scatter(x=df_filtered["Endofweek"], y=df_filtered[VIEW], mode="lines+markers", hovertemplate = "%{x}, " + FORMAT, name=t
                 )
             )
         line_fig.update_layout(
@@ -481,7 +471,7 @@ def update_graph(view, value, type, ticker_list, open_position, historical):
         open_position[dat] = pd.to_datetime(open_position[dat])
 
     historical = pd.DataFrame(historical)
-    historical["Date"] = pd.to_datetime(historical["Date"])
+    historical["Endofweek"] = pd.to_datetime(historical["Endofweek"])
 
 
     bar_fig = generate_bar(open_position, view, value)
