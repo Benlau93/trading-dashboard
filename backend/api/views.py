@@ -1,7 +1,6 @@
 from rest_framework import serializers, status
 from rest_framework.views import APIView
-from datetime import date
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer, HistoricalSerializer, DividendSerializer, WatchlistSerializer
 from rest_framework.response import Response
 from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition, HistoricalPL, Dividend, Watchlist
@@ -269,7 +268,7 @@ class RefreshViews(APIView):
     def get(self, request, format=None):
 
         # get all open position data
-        open_position = OpenPosition.objects.all().values("symbol","date_open","total_quantity","avg_exchange_rate","total_value_sgd")
+        open_position = OpenPosition.objects.all().values("symbol","total_quantity","avg_exchange_rate")
         open_position = pd.DataFrame(open_position)
         
         # get list of open position symbol
@@ -277,39 +276,48 @@ class RefreshViews(APIView):
         symbol_list = " ".join(symbol_list)
 
         # download yfinance price
-        data = yf.download(symbol_list, period = "1y", interval="1d", group_by="ticker", progress=False).reset_index()
+        data = yf.download(symbol_list, period = "3d", interval="1d", group_by="ticker", progress=False).reset_index()
         data = data.melt(id_vars="Date", var_name=["symbol","OHLC"], value_name="price")
-        data = data[data["OHLC"]=="Close"].drop(["OHLC"],axis=1)
+        data = data[data["OHLC"]=="Close"].drop(["OHLC"],axis=1).dropna()
 
         # download USD exchange rate
-        exchange_rate = yf.download("SGDUSD=X", period = "1y", interval="1d",progress=False)
+        exchange_rate = yf.download("SGDUSD=X", period = "3d", interval="1d",progress=False)
         exchange_rate = exchange_rate[["Close"]].reset_index()
         exchange_rate["latest_exchange_rate"] = exchange_rate["Close"].map(lambda x: 1/x)
         exchange_rate = exchange_rate.drop("Close", axis=1)
 
-        # get daily P/L
-        historical = pd.merge(open_position,data,on="symbol").dropna()
-        historical = historical[historical["Date"]>=historical["date_open"]].copy()
-        historical = pd.merge(historical, exchange_rate, how="left", on="Date")
-        historical["latest_exchange_rate"] = historical["latest_exchange_rate"].fillna(historical["avg_exchange_rate"]) # handle if exchange rate is nan
-        historical["latest_exchange_rate"] = historical.apply(lambda row: row["avg_exchange_rate"] if row["avg_exchange_rate"] == 1 else row["latest_exchange_rate"], axis=1)
-        historical["pl_sgd"] = ((historical["price"] * historical["total_quantity"]) * (historical["latest_exchange_rate"])) - historical["total_value_sgd"]
-        historical = historical[["Date","symbol","pl_sgd","price"]].reset_index(drop=True)
-        historical["id"] = historical.index
-        historical.columns = historical.columns.str.lower()
+        # get endofweek for yf data
+        def get_endofweek(date):
+            start = date - timedelta(days = date.weekday())
+            end = start + timedelta(days=6)
+
+            return end
+
+        data["endofweek"] = data["Date"].map(get_endofweek)
+        exchange_rate["endofweek"] = exchange_rate["Date"].map(get_endofweek)
+
+        # group and get latest
+        data = data.sort_values(["symbol","Date"]).groupby(["endofweek","symbol"]).tail(1).drop(["Date"], axis=1)
+        exchange_rate = exchange_rate.sort_values(["Date"]).groupby("endofweek").tail(1).drop("Date", axis=1)
+
+        # get portfolio value
+        historical = pd.merge(open_position,data,on="symbol")
+        historical = pd.merge(historical, exchange_rate, on="endofweek")
+        historical["avg_exchange_rate"] = historical.apply(lambda row: row["avg_exchange_rate"] if row["avg_exchange_rate"] == 1 else row["latest_exchange_rate"], axis=1)
+        historical["value"] = historical["total_quantity"] * historical["price"] * historical["avg_exchange_rate"]
         
-       
         # delete exisitng historical data
-        exist = HistoricalPL.objects.all().delete()
+        exist = HistoricalPL.objects.all().filter(endofweek = historical["endofweek"].astype(str).iloc[0]).delete()
 
         # insert into historical model
+        historical["id"] = historical["symbol"] + "|" + historical["endofweek"].astype(str)
         df_records = historical.to_dict(orient="records")
         model_instances = [HistoricalPL(
         id = record["id"],
-        date = record["date"],
+        endofweek = record["endofweek"],
         symbol = record["symbol"],
         price = record["price"],
-        pl_sgd = record["pl_sgd"],
+        value = record["value"],
         ) for record in df_records]
         HistoricalPL.objects.bulk_create(model_instances)
 
