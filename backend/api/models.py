@@ -52,8 +52,7 @@ class HistoricalPL(models.Model):
     symbol = models.CharField(max_length=20, blank=False, db_column="SYMBOL")
     price = models.FloatField(blank = False, db_column="PRICE", default=0)
     value = models.FloatField(blank = False, db_column="VALUE")
-    pl_sgd = models.FloatField(blank = False)
-    pl_per = models.FloatField(blank = False)
+    total_value = models.FloatField(blank = False)
 
 
 class Dividend(models.Model):

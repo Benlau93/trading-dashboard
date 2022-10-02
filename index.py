@@ -91,8 +91,8 @@ def load_data():
     historical = pd.merge(historical, type_map, on="symbol")
     historical.columns = historical.columns.str.capitalize()
     historical["Endofweek"] = pd.to_datetime(historical["Endofweek"], format="%Y-%m-%d")
-    historical = historical.rename({"Pl_sgd":"Unrealised P/L","Pl_per":"Unrealised P/L (%)"}, axis=1)
-    # historical = pd.merge(historical,open_position[["Symbol","Amount (SGD)"]], on="Symbol")
+    historical["Unrealised P/L"] = historical["Value"] - historical["Total_value"]
+    historical["Unrealised P/L (%)"] = historical["Unrealised P/L"] / historical["Total_value"]
     current_value = historical.sort_values(["Symbol","Endofweek"]).groupby("Symbol").tail(1)[["Symbol","Value","Price","Unrealised P/L (%)","Unrealised P/L"]]
 
     # update open position current price

@@ -138,42 +138,57 @@ def generate_bar(df, view,value):
     return bar_fig
 
 
-def generate_line(df, ticker_list):
+def generate_line(df, ticker_list, value):
     df_ = df.copy()
-    VIEW = "Value"
-    FORMAT = "%{y:$,.0f}" 
+    VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
+    FORMAT = "%{y:$,.0f}" if value == "Absolute" else "%{y:.0%}"
 
     df_ = df_.sort_values(["Symbol","Endofweek"])
-    
 
-    line_fig = go.Figure()
-
-    if ticker_list == None or len(ticker_list) ==0:
+    if ticker_list == None or len(ticker_list) <= 1:
+        line_fig = make_subplots(rows=2, cols = 1, row_heights=[0.8,0.2])
+        if ticker_list != None and len(ticker_list) == 1:
+            df_ = df_[df_["Symbol"]==ticker_list[0]].copy()
         df_ = df_.groupby(["Symbol","Endofweek"]).tail(1).groupby("Endofweek").sum().reset_index()
+        df_["Unrealised P/L (%)"] = df_["Unrealised P/L"] / df_["Total_value"]
+        
+        # define bar color
+        bar_colors = ["crimson" if pl <0 else "#2E8B57" for pl in df_[VIEW].values]
+
+        # generate charts
         line_fig.add_trace(
-            go.Scatter(x=df_["Endofweek"], y=df_[VIEW], mode="lines+markers"
-            )
+            go.Scatter(x=df_["Endofweek"], y=df_["Value"], mode="lines+markers", name = "Value"
+            ), row = 1, col=1
         )
-        line_fig.update_layout(
-            margin=dict(t=0),
-            xaxis=dict(showgrid=False),
-            yaxis=dict(zerolinecolor="black",title=VIEW, tickformat=FORMAT[4:-3] + "0" + FORMAT[-2]),
-            template=TEMPLATE
+
+        line_fig.add_trace(
+        go.Bar(x=df_["Endofweek"], y=df_[VIEW], name="P/L",texttemplate=FORMAT,textposition="none", opacity=0.5, marker_color = bar_colors)
+        , row=2, col=1
         )
+
+        line_fig.update_yaxes(row=2, col=1, title="P/L", rangemode="tozero", showgrid=False, zeroline=True, zerolinecolor="black",tickformat=FORMAT[4:-1])
+        line_fig.update_yaxes(row=1,col=1,title="Value",tickformat="$,.0f", zeroline=True, zerolinecolor="black", showgrid=False)
+        line_fig.update_xaxes(row=2, col=1, showticklabels=False)
     else:
+        line_fig = go.Figure()
+
         for t in ticker_list:
             df_filtered = df_[df_["Symbol"]==t].groupby(["Symbol","Endofweek"]).tail(1).groupby("Endofweek").sum().reset_index()
             
             line_fig.add_trace(
-                go.Scatter(x=df_filtered["Endofweek"], y=df_filtered[VIEW], mode="lines+markers", hovertemplate = "%{x}, " + FORMAT, name=t
-                )
+                go.Scatter(x=df_filtered["Endofweek"], y=df_filtered["Value"], mode="lines+markers", hovertemplate = "%{x}, " + FORMAT, name=t
+                ) 
             )
-        line_fig.update_layout(
-            margin=dict(t=0),
-            xaxis=dict(showgrid=False),
-            yaxis=dict(zerolinecolor="black",title=VIEW, tickformat=FORMAT[4:-3] + "0" + FORMAT[-2]),
-            template=TEMPLATE
-        )
+
+        line_fig.update_yaxes(title="Value",tickformat="$,.0f", zeroline=True, zerolinecolor="black", showgrid=False)
+
+    
+    line_fig.update_layout(
+        margin=dict(t=0),
+        xaxis=dict(showgrid=False),
+        showlegend = False,
+        template=TEMPLATE
+    )
 
     return line_fig
 
@@ -404,7 +419,7 @@ layout = html.Div([
         ]),
         dbc.Row([html.Div(style={"margin-top":20})]),
         dbc.Row([
-            dbc.Col(html.H5(children='Total Value over Time', className="text-center"),
+            dbc.Col(html.H5(children='Trends', className="text-center"),
                             width=4, className="mt-4")
         ], justify="center"),
         dbc.Row([
@@ -505,16 +520,16 @@ def update_graph(view, value, type, ticker_list, open_position, historical):
     pie_fig = generate_pie(open_position, view, value)
     waterfall_fig = generate_waterfall(open_position, view, value)
     trend_fig = generate_trend(historical)
-
-    historical = pd.merge(historical, open_position[["Symbol"]], on="Symbol")
-    if type == None:
-        line_fig = generate_line(historical,ticker_list)
-    else:
-        line_fig = generate_line(historical[historical["Type"]==type], None)
-
     indicator_fig = generate_indicator(open_position)
     table_fig = generate_table(open_position)
+
     
+    historical = pd.merge(historical, open_position[["Symbol","Date_Open"]], on="Symbol")
+    historical = historical[historical["Endofweek"] >= historical["Date_Open"]].copy()
+    if type == None:
+        line_fig = generate_line(historical,ticker_list, value)
+    else:
+        line_fig = generate_line(historical[historical["Type"]==type], None, value)
 
 
     return indicator_fig , trend_fig ,pie_fig ,bar_fig, waterfall_fig, line_fig, table_fig
