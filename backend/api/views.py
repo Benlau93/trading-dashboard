@@ -297,7 +297,7 @@ class RefreshViews(APIView):
         exchange_rate["endofweek"] = exchange_rate["Date"].map(get_endofweek)
 
         # group and get latest
-        data = data.sort_values(["symbol","Date"]).groupby(["endofweek","symbol"]).tail(1).drop(["Date"], axis=1)
+        data = data.sort_values(["symbol","Date"]).groupby(["symbol","endofweek"]).tail(1).drop(["Date"], axis=1)
         exchange_rate = exchange_rate.sort_values(["Date"]).groupby("endofweek").tail(1).drop("Date", axis=1)
 
         # get portfolio value
