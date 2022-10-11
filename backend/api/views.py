@@ -276,12 +276,12 @@ class RefreshViews(APIView):
         symbol_list = " ".join(symbol_list)
 
         # download yfinance price
-        data = yf.download(symbol_list, period = "3d", interval="1d", group_by="ticker", progress=False).reset_index()
+        data = yf.download(symbol_list, period = "7d", interval="1d", group_by="ticker", progress=False).reset_index()
         data = data.melt(id_vars="Date", var_name=["symbol","OHLC"], value_name="price")
         data = data[data["OHLC"]=="Close"].drop(["OHLC"],axis=1).dropna()
 
         # download USD exchange rate
-        exchange_rate = yf.download("SGDUSD=X", period = "3d", interval="1d",progress=False)
+        exchange_rate = yf.download("SGDUSD=X", period = "7d", interval="1d",progress=False)
         exchange_rate = exchange_rate[["Close"]].reset_index()
         exchange_rate["latest_exchange_rate"] = exchange_rate["Close"].map(lambda x: 1/x)
         exchange_rate = exchange_rate.drop("Close", axis=1)
@@ -305,9 +305,10 @@ class RefreshViews(APIView):
         historical = pd.merge(historical, exchange_rate, on="endofweek")
         historical["avg_exchange_rate"] = historical.apply(lambda row: row["avg_exchange_rate"] if row["avg_exchange_rate"] == 1 else row["latest_exchange_rate"], axis=1)
         historical["value"] = historical["total_quantity"] * historical["price"] * historical["avg_exchange_rate"]
-        
+
         # delete exisitng historical data
-        exist = HistoricalPL.objects.all().filter(endofweek = historical["endofweek"].astype(str).iloc[0]).delete()
+        endofweek_list = list(historical["endofweek"].astype(str).unique())
+        exist = HistoricalPL.objects.all().filter(endofweek__in = endofweek_list).delete()
 
         # insert into historical model
         historical["id"] = historical["symbol"] + "|" + historical["endofweek"].astype(str)
