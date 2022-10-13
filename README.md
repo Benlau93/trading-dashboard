@@ -37,3 +37,6 @@ Else for closed positions, P/L and holding period will be generated for each pos
 
 
 ## Demo
+
+[Add Transaction](./img/add_transaction.PNG)
+[Portfolio](./img/portfolio_overview.PNG)
