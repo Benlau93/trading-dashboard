@@ -38,5 +38,12 @@ Else for closed positions, P/L and holding period will be generated for each pos
 
 ## Demo
 
+### Portfolio Management
 ![Add Transaction](./img/add_transaction.PNG)
 ![Portfolio](./img/portfolio_overview.PNG)
+![Portfolio Breakdown](./img/portfolio_breakdown.PNG)
+![Portfolio Trends](./img/portfolio_trend.PNG)
+
+### Closed Position Analysis
+![Closed Positions](./img/historical_overview.PNG)
+![Closed Positions Breakdown](./img/historical_breakdown.PNG)
