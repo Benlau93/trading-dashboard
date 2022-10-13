@@ -1,10 +1,10 @@
 # Trading Dashboard
-Trading Dashboard is a full-stack web app that tracks investment portfolio for most asset classes
+Trading Dashboard is a full-stack web app that tracks investment portfolio for multiple asset classes
 
 ## Motivation
 Most web/mobile apps that track investment portfolio only allow tracking of a single asset class (e.g. Equities). This become an issue when your investment portfolio consists of multiple asset classes and you start to manage multiple apps to monitor your porftolio.
 
-Trading Dashboard uses yahoo finance API to retrieve the most updated ticker price for all asset classes, including:
+Trading Dashboard uses yahoo finance API to retrieve the most updated ticker price for all asset classes, including but not limited to:
 1. Equities
 2. Cryptocurrency
 3. Commodity
@@ -20,9 +20,8 @@ Operation such as:
 ## Analysis
 Open and closed positions are then analysed separately.
 
-
 ### Open Positions (Portfolio)
-For positions within the current portfolio, updated prices will be retrieved from yahoo finance API to compute:
+For positions within the current active portfolio, updated prices will be retrieved from yahoo finance API to compute:
 1. Portfolio Value
 2. Profit/Loss (P/L)
 
@@ -47,3 +46,16 @@ Else for closed positions, P/L and holding period will be generated for each pos
 ### Closed Position Analysis
 ![Closed Positions](./img/historical_overview.PNG)
 ![Closed Positions Breakdown](./img/historical_breakdown.PNG)
+
+
+## Enhancement/Features Added
+
+1. Dividend Tracker <br>
+If dividend ex-date occurred during the stock holding period, dividend will be retrieved using yahoo finance API
+
+![Dividend](./img/dividend.PNG)
+
+2. Watchlist <br>
+Watchlist functionality is added with the ability to set and monitor target prices.
+
+![Watchlist](./img/watchlist.PNG)
