@@ -34,6 +34,9 @@ Else for closed positions, P/L and holding period will be generated for each pos
 2. Backend API - Django Restful API (Python)
 3. Database - Sqlite3 (RDBMS)
 
+## Limitation
+1. Currently only able to add Long position. Position will not be updated correctly if shorting
+2. Only allow SGD as primary currency and USD as other currency
 
 ## Demo
 
