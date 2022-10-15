@@ -24,38 +24,26 @@ class TickerViews(generics.ListAPIView):
     serializer_class = TickerSerializer
 
 
-class ClosedViews(APIView):
-    close_serializer = ClosedSerializer
+class ClosedViews(generics.ListAPIView):
 
-    def get(self, request, format=None):
-        data = ClosedPosition.objects.all()
-        serializer = self.close_serializer(data, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    queryset = ClosedPosition.objects.all()
+    serializer_class = ClosedSerializer
 
 
-class OpenViews(APIView):
-    open_serializer = OpenSerializer
+class OpenViews(generics.ListAPIView):
 
-    def get(self, request, format=None):
-        data = OpenPosition.objects.all()
-        serializer = self.open_serializer(data, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    queryset = OpenPosition.objects.all()
+    serializer_class = OpenSerializer
 
-class HistoricalViews(APIView):
-    hist_serializer = HistoricalSerializer
+class HistoricalViews(generics.ListAPIView):
 
-    def get(self, request, format=None):
-        data = HistoricalPL.objects.all()
-        serializer = self.hist_serializer(data, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    queryset = HistoricalPL.objects.all()
+    serializer_class = HistoricalSerializer
 
-class DividendViews(APIView):
-    dividend_serializer = DividendSerializer
+class DividendViews(generics.ListAPIView):
 
-    def get(self, request, format=None):
-        data = Dividend.objects.all()
-        serializer = self.dividend_serializer(data, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    queryset = Dividend.objects.all()
+    serializer_class = DividendSerializer
 
 class TransactionViews(APIView):
     transaction_serializer = TransactionSerializer
