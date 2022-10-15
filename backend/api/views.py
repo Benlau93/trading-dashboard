@@ -1,6 +1,6 @@
 from rest_framework import status
 from rest_framework.views import APIView
-from rest_framework import generics
+from rest_framework.viewsets import ReadOnlyModelViewSet
 from datetime import date, datetime, timedelta
 from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer, HistoricalSerializer, DividendSerializer, WatchlistSerializer
 from rest_framework.response import Response
@@ -18,29 +18,29 @@ class DownloadViews(APIView):
         df = df.reset_index()
         return Response(df.to_dict(orient="records"), status=status.HTTP_200_OK)
 
-class TickerViews(generics.ListAPIView):
+class TickerViewSet(ReadOnlyModelViewSet):
 
     queryset = TickerInfo.objects.all()
     serializer_class = TickerSerializer
 
 
-class ClosedViews(generics.ListAPIView):
+class ClosedViewSet(ReadOnlyModelViewSet):
 
     queryset = ClosedPosition.objects.all()
     serializer_class = ClosedSerializer
 
 
-class OpenViews(generics.ListAPIView):
+class OpenViewSet(ReadOnlyModelViewSet):
 
     queryset = OpenPosition.objects.all()
     serializer_class = OpenSerializer
 
-class HistoricalViews(generics.ListAPIView):
+class HistoricalViewSet(ReadOnlyModelViewSet):
 
     queryset = HistoricalPL.objects.all()
     serializer_class = HistoricalSerializer
 
-class DividendViews(generics.ListAPIView):
+class DividendViewSet(ReadOnlyModelViewSet):
 
     queryset = Dividend.objects.all()
     serializer_class = DividendSerializer

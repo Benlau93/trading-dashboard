@@ -41,7 +41,7 @@ navbar = dbc.NavbarSimple(
 
 def load_data():
     # ticker information
-    tickerinfo = requests.get("http://127.0.0.1:8000/api/ticker")
+    tickerinfo = requests.get("http://127.0.0.1:8000/api/ticker/")
     tickerinfo = pd.DataFrame.from_dict(tickerinfo.json())
     tickerinfo["type"] = tickerinfo["type"] + " - " + tickerinfo["currency"].str[:-1]
     type_map = tickerinfo[["symbol","type"]].drop_duplicates()
@@ -55,7 +55,7 @@ def load_data():
     data["DATE"] = data["Date"].dt.strftime("%b-%y")
 
     # closed position
-    closed = requests.get("http://127.0.0.1:8000/api/closed")
+    closed = requests.get("http://127.0.0.1:8000/api/closed/")
     closed = pd.DataFrame.from_dict(closed.json())
     closed = pd.merge(closed, tickerinfo, on="symbol")
     closed.columns = closed.columns.str.capitalize()
@@ -70,7 +70,7 @@ def load_data():
                             "Id":"id"}, axis=1)
 
     # open position
-    open_position = requests.get("http://127.0.0.1:8000/api/open")
+    open_position = requests.get("http://127.0.0.1:8000/api/open/")
     open_position = pd.DataFrame.from_dict(open_position.json())
     open_position = pd.merge(open_position, tickerinfo, on="symbol")
     open_position.columns = open_position.columns.str.capitalize()
@@ -86,7 +86,7 @@ def load_data():
 
 
     # historical pl
-    historical = requests.get("http://127.0.0.1:8000/api/historical")
+    historical = requests.get("http://127.0.0.1:8000/api/historical/")
     historical = pd.DataFrame.from_dict(historical.json())
     historical = pd.merge(historical, type_map, on="symbol")
     historical.columns = historical.columns.str.capitalize()
@@ -99,7 +99,7 @@ def load_data():
     open_position = pd.merge(open_position, current_value)
     
     # import dividend
-    dividend_df = requests.get("http://127.0.0.1:8000/api/dividend")
+    dividend_df = requests.get("http://127.0.0.1:8000/api/dividend/")
     dividend_df = pd.DataFrame.from_dict(dividend_df.json())
     dividend_df["date_dividend"] = pd.to_datetime(dividend_df["date_dividend"], format="%Y-%m-%d")
     # join to ticker to get currency
