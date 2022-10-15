@@ -1,5 +1,6 @@
-from rest_framework import serializers, status
+from rest_framework import status
 from rest_framework.views import APIView
+from rest_framework import generics
 from datetime import date, datetime, timedelta
 from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer, HistoricalSerializer, DividendSerializer, WatchlistSerializer
 from rest_framework.response import Response
@@ -17,13 +18,10 @@ class DownloadViews(APIView):
         df = df.reset_index()
         return Response(df.to_dict(orient="records"), status=status.HTTP_200_OK)
 
-class TickerViews(APIView):
-    ticker_serializer = TickerSerializer
+class TickerViews(generics.ListAPIView):
 
-    def get(self, request, format=None):
-        data = TickerInfo.objects.all()
-        serializer = self.ticker_serializer(data, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+    queryset = TickerInfo.objects.all()
+    serializer_class = TickerSerializer
 
 
 class ClosedViews(APIView):
