@@ -517,9 +517,9 @@ def update_graph(view, value, type, ticker_list, open_position, historical):
 
     # filter historical to the last complete endofweek
     num_open = open_position["Symbol"].nunique()
-    latest_complete_week = historical.groupby("EndofWeek").nunique()[["Symbol"]].reset_index()
-    latest_complete_week = latest_complete_week[latest_complete_week["Symbol"]==num_open]["EndofWeek"].max()
-    historical = historical[historical["EndofWeek"]<=latest_complete_week].copy()
+    latest_complete_week = historical.groupby("Endofweek").nunique()[["Symbol"]].reset_index()
+    latest_complete_week = latest_complete_week[latest_complete_week["Symbol"]==num_open]["Endofweek"].max()
+    historical = historical[historical["Endofweek"]<=latest_complete_week].copy()
     
     # generate charts
     bar_fig = generate_bar(open_position, view, value)
