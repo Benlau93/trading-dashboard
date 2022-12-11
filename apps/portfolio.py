@@ -138,7 +138,8 @@ def generate_bar(df, view,value):
     return bar_fig
 
 
-def generate_line(df, ticker_list, value):
+def generate_line(df, ticker_list, value, benchmark):
+    print(benchmark)
     df_ = df.copy()
     VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
     FORMAT = "%{y:$,.0f}" if value == "Absolute" else "%{y:.0%}"
@@ -437,7 +438,7 @@ layout = html.Div([
                             options=[
                                 {"label": "None", "value": None},
                                 {"label": "STI", "value": "STI"},
-                                {"label": "S&P", "value": "S&P"},
+                                {"label": "S&P", "value": "S&P500"},
                             ],
                             value=None), className = "text-center mb-4"),
                     dbc.Col(dbc.Card(
@@ -520,10 +521,11 @@ def update_ticker_dropdown(value, open_position):
     Input(component_id="value-radios", component_property="value"),
     Input(component_id="type-dropdown-open", component_property="value"),
     Input(component_id="symbol-dropdown",component_property="value"),
+    Input(component_id="benchmark-radios", component_property="value"),
     State(component_id="open-store", component_property="data"),
     State(component_id="historical-store", component_property="data"),
 )
-def update_graph(view, value, type, ticker_list, open_position, historical):
+def update_graph(view, value, type, ticker_list, benchmark, open_position, historical):
     if open_position == None or historical == None:
         return None, None, None, None, None, None
 
@@ -552,9 +554,9 @@ def update_graph(view, value, type, ticker_list, open_position, historical):
     historical = pd.merge(historical, open_position[["Symbol","Date_Open"]], on="Symbol")
     historical = historical[historical["Endofweek"] >= historical["Date_Open"]].copy()
     if type == None:
-        line_fig = generate_line(historical,ticker_list, value)
+        line_fig = generate_line(historical,ticker_list, value, benchmark)
     else:
-        line_fig = generate_line(historical[historical["Type"]==type], None, value)
+        line_fig = generate_line(historical[historical["Type"]==type], None, value, benchmark)
 
 
     return indicator_fig , trend_fig ,pie_fig ,bar_fig, waterfall_fig, line_fig, table_fig

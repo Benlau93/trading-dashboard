@@ -1,4 +1,4 @@
-from rest_framework import status, viewsets
+from rest_framework import status
 from rest_framework.views import APIView
 from datetime import date, datetime, timedelta
 from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer, HistoricalSerializer, DividendSerializer, WatchlistSerializer, BenchmarkSerializer
@@ -9,9 +9,12 @@ import numpy as np
 import pandas as pd
 
 
-class BenchmarksViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Benchmarks.objects.all()
+class BenchmarksView(APIView):
     serializer_class = BenchmarkSerializer
+
+    def get(self, request, market, format = None):
+        # serializer = self.serializer_class(data, many=True)
+        return Response({"test":"test"}, status=status.HTTP_200_OK)
 
 class DownloadViews(APIView):
 
