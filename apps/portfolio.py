@@ -9,7 +9,7 @@ from dash import dash_table
 from dash.dash_table.Format import Format,Scheme
 from app import app
 import warnings
-from datetime import timedelta
+import requests
 
 warnings.filterwarnings("ignore")
 
@@ -139,7 +139,13 @@ def generate_bar(df, view,value):
 
 
 def generate_line(df, ticker_list, value, benchmark):
-    print(benchmark)
+
+    # api call to get benchmark data
+    if benchmark:
+        response = requests.get(f"http://127.0.0.1:8000/api/benchmark/{benchmark}")
+        market = pd.DataFrame(response.json())
+        print(market)
+
     df_ = df.copy()
     VIEW = "Unrealised P/L" if value == "Absolute" else "Unrealised P/L (%)"
     FORMAT = "%{y:$,.0f}" if value == "Absolute" else "%{y:.0%}"

@@ -13,8 +13,9 @@ class BenchmarksView(APIView):
     serializer_class = BenchmarkSerializer
 
     def get(self, request, market, format = None):
-        # serializer = self.serializer_class(data, many=True)
-        return Response({"test":"test"}, status=status.HTTP_200_OK)
+        data = Benchmarks.objects.filter(market = market).all()
+        serializer = self.serializer_class(data, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 class DownloadViews(APIView):
 
