@@ -424,16 +424,35 @@ layout = html.Div([
         ], justify="center"),
         dbc.Row([
             dbc.Col(dcc.Graph(id="line_open"), width=8),
-            dbc.Col(dbc.Card(
-                dbc.CardBody([
-                    html.H4("Select Filters", className="text-center"),
-                    html.Br(),
-                    dcc.Dropdown(id ="type-dropdown-open", placeholder="Select Asset Class"),
-                    html.Br(),
-                    html.Br(),
-                    dcc.Dropdown(id="symbol-dropdown", placeholder="Select Symbol",multi=True)
+            dbc.Col([
+                dbc.Row([
+                    html.H5("Compare to Market Benchmark", className = "text-center mb-3"),
+                    dbc.Col(
+                        dbc.RadioItems(
+                            id="benchmark-radios",
+                            className="btn-group",
+                            inputClassName="btn-check",
+                            labelClassName="btn btn-outline-danger",
+                            labelCheckedClassName="active",
+                            options=[
+                                {"label": "None", "value": None},
+                                {"label": "STI", "value": "STI"},
+                                {"label": "S&P", "value": "S&P"},
+                            ],
+                            value=None), className = "text-center mb-4"),
+                    dbc.Col(dbc.Card(
+                                dbc.CardBody([
+                                    html.H4("Select Ticker(s)", className="text-center"),
+                                    html.Br(),
+                                    dcc.Dropdown(id ="type-dropdown-open", placeholder="Select Asset Class"),
+                                    html.Br(),
+                                    html.Br(),
+                                    dcc.Dropdown(id="symbol-dropdown", placeholder="Select Symbol",multi=True)
 
-                ])), width=4)
+                                ])))
+                ])
+            ], width=4),
+
         ]),
         dbc.Row([
             dbc.Col(dbc.Card(html.H3(children='Table',
