@@ -1,12 +1,17 @@
-from rest_framework import serializers, status
+from rest_framework import status, viewsets
 from rest_framework.views import APIView
 from datetime import date, datetime, timedelta
-from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer, HistoricalSerializer, DividendSerializer, WatchlistSerializer
+from .serializers import TransactionSerializer, TickerSerializer, OpenSerializer, ClosedSerializer, HistoricalSerializer, DividendSerializer, WatchlistSerializer, BenchmarkSerializer
 from rest_framework.response import Response
-from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition, HistoricalPL, Dividend, Watchlist
+from .models import TransactionModel, TickerInfo, OpenPosition, ClosedPosition, HistoricalPL, Dividend, Watchlist, Benchmarks
 import yfinance as yf
 import numpy as np
 import pandas as pd
+
+
+class BenchmarksViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Benchmarks.objects.all()
+    serializer_class = BenchmarkSerializer
 
 class DownloadViews(APIView):
 

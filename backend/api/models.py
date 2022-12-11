@@ -73,3 +73,11 @@ class Watchlist(models.Model):
     current_price = models.FloatField()
     target_price = models.FloatField(blank=False)
     direction = models.CharField(max_length=10, choices=[("Above","Above"), ("Below","Below")], blank=False)
+
+
+class Benchmarks(models.Model):
+    id = models.CharField(max_length=20, primary_key=True)
+    market = models.CharField(max_length=10)
+    endofweek = models.DateField(blank=False)
+    price = models.FloatField(blank = False)
+    

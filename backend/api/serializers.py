@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import OpenPosition, TransactionModel, TickerInfo, ClosedPosition, HistoricalPL, Dividend, Watchlist
+from .models import OpenPosition, TransactionModel, TickerInfo, ClosedPosition, HistoricalPL, Dividend, Watchlist, Benchmarks
 import yfinance as yf
 
 class TransactionSerializer(serializers.ModelSerializer):
@@ -87,3 +87,9 @@ class WatchlistSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         return Watchlist.objects.create(**validated_data)
+
+
+class BenchmarkSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Benchmarks
+        fields = "__all__"
